@@ -97,7 +97,8 @@ if (!defined('txpinterface'))
 //      -->    NodeWrapper->*2   =  2nd-child sub-nodes
 //      -->    NodeWrapper->*1+2 =  1st and 2nd-child sub-nodes
 //      -->    NodeWrapper->*1-4 =  1st thru 4th-child sub-nodes
-function smd_xml($atts, $thing=NULL) {
+function smd_xml($atts, $thing=NULL)
+{
 	global $pretext, $thispage, $smd_xml_pginfo;
 
 	extract(lAtts(array(
@@ -218,9 +219,11 @@ function smd_xml($atts, $thing=NULL) {
 				}
 			}
 
+			$headers = smd_xml_headers($transport_config, $delim, $param_delim);
+
 			switch ($transport) {
 				case 'curl':
-					$src = smd_xml_curl($data, $timeout);
+					$src = smd_xml_curl($data, $timeout, $headers);
 				break;
 				case 'fsock':
 					$url = parse_url($data);
@@ -243,7 +246,23 @@ function smd_xml($atts, $thing=NULL) {
 					$qry = 'GET '.$url['path'] . ((isset($url['query'])) ? '?'.$url['query'] : '');
 					$qry .= " HTTP/1.0\r\n";
 					$qry .= "Host: ".$url['host']."\r\n";
-					$qry .= "User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.1.6) Gecko/20091201 Firefox/3.5.6\r\n\r\n"; // *shrug*
+
+					$validHeaders = array(
+						'accept'    => 'Accept',
+						'charset'   => 'Accept-Charset',
+						'date'      => 'Date',
+						'lang'      => 'Accept-Language',
+						'pragma'    => 'Pragma',
+						'useragent' => 'User-Agent',
+					);
+
+					foreach ($headers as $key => $value) {
+						if (array_key_exists($key, $validHeaders)) {
+							$qry .= $validHeaders[$key] . ': ' . $value . "\r\n";
+						}
+					}
+
+					$qry .= "\r\n";
 
 					fputs($fp, $qry);
 					stream_set_timeout($fp, $timeout);
@@ -630,13 +649,15 @@ function smd_xml($atts, $thing=NULL) {
 }
 
 // Convenience tags to check if there's a prev/next page defined. Could also use smd_if
-function smd_xml_if_prev($atts, $thing) {
+function smd_xml_if_prev($atts, $thing)
+{
 	global $smd_xml_pginfo;
 
 	$res = $smd_xml_pginfo && $smd_xml_pginfo['{smd_xml_prevpage}'] != '';
 	return parse(EvalElse(strtr($thing, $smd_xml_pginfo), $res));
 }
-function smd_xml_if_next($atts, $thing) {
+function smd_xml_if_next($atts, $thing)
+{
 	global $smd_xml_pginfo;
 
 	$res = $smd_xml_pginfo && $smd_xml_pginfo['{smd_xml_nextpage}'] != '';
@@ -646,17 +667,52 @@ function smd_xml_if_next($atts, $thing) {
 /*****************
  FUNCTION LIBRARY
 *****************/
-// Retrieve a resource via curl; return false otherwise
-function smd_xml_curl($data, $timeout=10) {
+/**
+ * Retrieve a resource via curl; return false otherwise
+ *
+ */
+function smd_xml_curl($data, $timeout=10, $headers = array())
+{
 	$ret = false;
+
+	// A useful subset of the available configuration parameters.
+	$validHeaders = array(
+		'binary'       => CURLOPT_BINARYTRANSFER, // bool
+		'cainfo'       => CURLOPT_CAINFO, // string
+		'capath'       => CURLOPT_CAPATH, // string
+		'certinfo'     => CURLOPT_CERTINFO, // bool
+		'crlf'         => CURLOPT_CRLF, // bool
+		'port'         => CURLOPT_PORT, // int
+		'proxy'        => CURLOPT_PROXY, // string
+		'proxytunnel'  => CURLOPT_HTTPPROXYTUNNEL, // bool
+		'proxyuserpwd' => CURLOPT_PROXYUSERPWD, // string
+		'netrc'        => CURLOPT_NETRC, // bool
+		'sslcert'      => CURLOPT_SSLCERT, // string
+		'useragent'    => CURLOPT_USERAGENT, // string
+		'verifypeer'   => CURLOPT_SSL_VERIFYPEER, // bool
+		'verbose'      => CURLOPT_VERBOSE, // bool
+	);
+
+	$defaultHeaders = array(
+		'verbose' => false,
+	);
+
+	// Defaults can be overridden by user values.
+	$headers = array_merge($defaultHeaders, $headers);
 
 	if (function_exists('curl_version')) {
 		$c = curl_init();
 		curl_setopt($c, CURLOPT_URL, $data);
 		curl_setopt($c, CURLOPT_REFERER, hu);
 		curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($c, CURLOPT_VERBOSE, false);
 		curl_setopt($c, CURLOPT_TIMEOUT, $timeout);
+
+		foreach ($headers as $key => $value) {
+			if (array_key_exists($key, $validHeaders)) {
+				curl_setopt($c, $validHeaders[$key], $value);
+			}
+		}
+
 		$ret = curl_exec($c);
 	}
 
@@ -664,7 +720,8 @@ function smd_xml_curl($data, $timeout=10) {
 }
 
 // Transform an XML document using the given XSL stylesheet
-function smd_xml_xsl_transform($xml, $xsl) {
+function smd_xml_xsl_transform($xml, $xsl)
+{
 	$ret = $xml;
 
 	if (class_exists('XSLTProcessor')) {
@@ -676,9 +733,37 @@ function smd_xml_xsl_transform($xml, $xsl) {
 	return $ret;
 }
 
+/**
+ * Create an array of header pairs suitable for configuring cURL/fsock.
+ *
+ * @param  string $transport_config Delimited header string
+ * @param  string $delim            Delimiter between headers
+ * @param  string $param_delim      Delimiter between name-value
+ * @return array
+ */
+function smd_xml_headers($transport_config = array(), $delim = ',', $param_delim = '|')
+{
+	$headers = array(
+		'useragent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:25.0) Gecko/20100101 Firefox/25.0', // just picked one
+	);
+
+	$headerPairs = do_list($transport_config, $delim);
+
+	foreach ($headerPairs as $transopt) {
+		$topts = do_list($transopt, $param_delim);
+
+		if (count($topts) === 2) {
+			$headers[$topts[0]] = $topts[1];
+		}
+	}
+
+	return $headers;
+}
+
 // Convert XML document to associative array
 // (from http://stackoverflow.com/questions/99350/php-associative-arrays-to-and-from-xml)
-function smd_xml_to_array($curr_node) {
+function smd_xml_to_array($curr_node)
+{
 	$val_array = array();
 	$typ_array = array();
 
@@ -710,10 +795,12 @@ function smd_xml_to_array($curr_node) {
 }
 
 // Build an XML data set from associative array
-class smd_xml_build_data {
+class smd_xml_build_data
+{
 	private $xml, $last_idx, $recWrap;
 
-	function smd_xml_build_data ($data, $startElement, $recWrap, $xml_version = '1.0', $xml_encoding = 'UTF-8') {
+	function smd_xml_build_data ($data, $startElement, $recWrap, $xml_version = '1.0', $xml_encoding = 'UTF-8')
+	{
 		$startElement = ($startElement) ? $startElement : 'fx_request';
 		if (!is_array($data)) {
 			$err = 'Invalid variable type supplied, expected array not found on line '.__LINE__." in Class: ".__CLASS__." Method: ".__METHOD__;
@@ -733,12 +820,14 @@ class smd_xml_build_data {
 	}
 
 	// Standard getter
-	function getData() {
+	function getData()
+	{
 		return $this->xml->outputMemory(true);
 	}
 
 	// Recurse array elements and build XML tag tree
-	function write(XMLWriter $xml, $data, $parent) {
+	function write(XMLWriter $xml, $data, $parent)
+	{
 		foreach ($data as $key => $value) {
 			// Nodes that aren't valid attributes get given an array index
 			if (!preg_match('/[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*/', $key)) {
@@ -775,7 +864,8 @@ class smd_xml_parser {
 	/**
 	* constructor
 	*/
-	function __construct($atts) {
+	function __construct($atts)
+	{
 		$this->data        = $atts['src'];
 		$this->delim       = $atts['delim'];
 		$this->tdelim      = $atts['tag_delim'];
@@ -852,7 +942,8 @@ class smd_xml_parser {
 		$this->parse();
 	}
 
-	public function getResults() {
+	public function getResults()
+	{
 		if ($this->out) {
 			return $this->out;
 		} else {
@@ -860,7 +951,8 @@ class smd_xml_parser {
 		}
 	}
 
-	private function parse() {
+	private function parse()
+	{
 		$xmlparser = xml_parser_create();
 		xml_set_object($xmlparser, $this);
 		xml_parser_set_option($xmlparser, XML_OPTION_CASE_FOLDING, $this->casefold);
@@ -874,14 +966,16 @@ class smd_xml_parser {
 
 	// Do nothing with default (non-XML) data. Just report it in debug mode
 	// TODO: allow some callback / Form to handle this type of data
-	private function smd_xml_default($parser, $data) {
+	private function smd_xml_default($parser, $data)
+	{
 		if ($this->debug > 1) {
 			trace_add ('[smd_xml default data: ' . print_r($data, true) . ']');
 		}
 	}
 
 	// Start of XML tag
-	private function smd_xml_start_tag($parser, $name, $attribs) {
+	private function smd_xml_start_tag($parser, $name, $attribs)
+	{
 		array_push($this->tagtree, $name);
 
 		$pgval = $this->rowinfo['pgoffset'] - 1;
@@ -947,7 +1041,8 @@ class smd_xml_parser {
 	}
 
 	// End of XML tag
-	private function smd_xml_end_tag($parser, $name) {
+	private function smd_xml_end_tag($parser, $name)
+	{
 		// End of a regular/attribute-only/container/self-closing tag
 		if ( ($name != $this->rec) && ($name != $this->skiptag) && $this->intag && in_array($name, array_merge($this->fields, $this->subfields)) ) {
 			$this->xmltag = $name;
@@ -1091,7 +1186,8 @@ class smd_xml_parser {
 	}
 
 	// Node data/text that is not an XML tag
-	private function smd_xml_tag_contents($parser, $data) {
+	private function smd_xml_tag_contents($parser, $data)
+	{
 		if ($this->intag && !$this->skiptag) {
 			if ($this->debug > 1) {
 				trace_add ('[smd_xml tag:' . $this->xmltag . ']');
@@ -1129,7 +1225,8 @@ class smd_xml_parser {
 	}
 
 	// Create any attribute nodes
-	private function smd_xml_store_attribs($name) {
+	private function smd_xml_store_attribs($name)
+	{
 		if ($this->xmlatts[$name]) {
 			foreach ($this->xmlatts[$name] as $xkey => $xval) {
 				// Append if attribute previously encountered
@@ -1232,10 +1329,6 @@ h2. Features
 * Use a Form or the plugin container to output data you have extracted
 * XML tag attributes are available as well
 * Supports pagination of results with limit/offset
-
-h2(#author). Author
-
-"Stef Dawson":http://stefdawson.com/contact. For other software by me, or to make a donation, see the "software page":http://stefdawson.com/sw.
 
 h2(#install). Installation / Uninstallation
 
@@ -1417,8 +1510,8 @@ Default: @ @ (space).
 :: *fsock*
 :: *curl*
 :: *soap*
-: The @soap@ mechanism uses CURL internally so you must have that available.
-: Default: @fsock@.
+: The @soap@ mechanism uses cURL internally so you must have that available.
+: Default: @curl@ (if available), else @fsock@.
 ; %(atnm)transport_opts%
 : When using @soap@ transport you often need to pass additional parameters to the SOAP server. @transport_opts@ takes up to three paramaters, separated by @delim@:
 :: Client method: the name of a SOAP method to call
@@ -1426,11 +1519,34 @@ Default: @ @ (space).
 :: Result method: the name of a SOAP method to fetch the output. The first @param_delim@ option is the method name to call to obtain the result set, and the second is the portion of the results you want returned (e.g. @any@)
 ; %(atnm)transport_config%
 : Allows you to configure how the plugin interacts with the server. The following configuration parameters are available; separate each configuration item from its predecessor using @delim@ and separate any value from its parameter name using @param_delim@ :
+;; For soap:
 :: *soap_wrap* : the data you pass to the SOAP server may not be encapsulated in its own unique element. If that's the case and the server requires this, you can specify the wrapper here. For example, some servers require @soap_wrap|Request@.
 :: *soap_delim* : when retrieving multiple SOAP items, they will be concatenated together using this delimiter. Default: the same delimiter as set in @param_delim@.
 :: *soap_type_input* : can be either @nvpairs@ (the default, as shown above) or @xml@ if you are passing in a complete XML document to configure the SOAP server. When using xml input format, the plugin automatically converts the given XML document into a SOAP array.
 :: *soap_type_output* : SOAP data is normally returned as an XML document, but if for some reason the server sends back a raw SOAP array you can use this with an @xml@ parameter to ask the plugin to try and interpret the SOAP data into an XML stream for you. The success of this operation is duty bound by how well formed the resulting data is. If using this you may (probably will) also need to specify @soap_numeric_wrap@.
 :: *soap_numeric_wrap* : when converting a SOAP array back to XML, any repeating records are normally indexed starting from 0. Since raw numbers are invalid XML tag names they need to be altered somehow. By default, this is done by taking the parent class and appending a sequential number to it. If you wish to set any numeric records to a specific wrapper element, specify that element here.
+;; For curl:
+:: *binary*
+:: *cainfo*
+:: *capath*
+:: *certinfo*
+:: *crlf*
+:: *port*
+:: *proxy*
+:: *proxytunnel*
+:: *proxyuserpwd*
+:: *netrc*
+:: *sslcert*
+:: *useragent*
+:: *verifypeer*
+:: *verbose*
+;; For fsock:
+:: *accept*
+:: *charset*
+:: *date*
+:: *lang*
+:: *pragma*
+:: *useragent*
 ; %(atnm)line_length%
 : If you are using the @fsock@ transport mechanism, the plugin grabs the XML document line by line and uses a maximum line length of 8192 characters by default. This is usually good enough because most feeds contain newlines, but some (e.g. Google Spreadsheet) don't have any newlines in them.
 : To successfully parse such documents you may need to increase the line length. In these situations, however, it is highly recommended to switch to @transport="curl"@ instead (if you can) because it does not have any line length restrictions.
@@ -1605,12 +1721,15 @@ bc(block). <txp:smd_xml data="http://feeds.delicious.com/v2/rss/roadrunner"
 
 This example takes a delicious feed, reformats the various entries and inserts them into the textpattern table in a dedicated section. Note that the date format is altered and the feed's title is converted to a sanitized TXP URL suitable for the url_title field.
 
-h2. Credits
+h2. Author and credits
+
+Written by "Stef Dawson":http://stefdawson.com/contact. For other software by me, or to make a donation, see the "software page":http://stefdawson.com/sw.
 
 This plugin would not have been possible without the tireless help from those community members willing to test my flaky beta code as I strive to make the plugin work across as many types of feed as possible. Special mentions, in no particular order, go to oliverker, aslsw66, tye, jakob, Mats, and Destry.
 
 h2(changelog). Changelog
 
+* 06 Oct 2014 | 0.41 | Add support for customisable headers (thank johnno)
 * 03 Apr 2012 | 0.40 | Improved feed support and tag detection for more varied / complicated feeds ; added XML-over-FTP support (thanks aslsw66) ; added SOAP transport facility, @transport_opts@ and @transport_config@ attributes ; added XSL and regex transform support ; allowed @sub->field@ support and added @match@, @ontagstart@, @ontagend@ and @load_atts@ for finer control over field extraction ; added @datawrap@, @var_prefix@ and @timeout@ attributes ; added record attribute support (thanks Mats) ; fixed mangled date field bug ; fixed attributes-in-record-entry limit bug and undesired ontag output (both thanks tye) ; changed @format@'s @escape@ attribute to @fordb@ (@escape@ is now for @htmlspecialchars()@) ; added @kill_spaces@ so inter-tag whitespace removal is optional (but highly recommended) ; added @tag_delim@ (thanks MattD)
 * 17 Jan 2010 | 0.30 | Enabled URL params to be passed in the @data@ attribute ; added @format@ ; deprecated @linkify@ ; @param_delim@ default is now pipe
 * 13 Jan 2010 | 0.22 | Added @line_length@ (thanks nardo)
