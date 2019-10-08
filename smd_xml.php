@@ -104,569 +104,569 @@ if (class_exists('\Textpattern\Tag\Registry')) {
 //      -->    NodeWrapper->*1-4 =  1st thru 4th-child sub-nodes
 function smd_xml($atts, $thing=NULL)
 {
-	global $pretext, $thispage, $smd_xml_pginfo;
+    global $pretext, $thispage, $smd_xml_pginfo;
 
-	extract(lAtts(array(
-		'data'             => '',
-		'datawrap'         => '',
-		'record'           => '',
-		'fields'           => '',
-		'skip'             => '',
-		'match'            => '',
-		'timeout'          => 10,
-		'transform'        => '',
-		'kill_spaces'      => 1,
-		'ontagstart'       => '',
-		'ontagend'         => '',
-		'load_atts'        => 'start', // (tag) start or end
-		'uppercase'        => '0',
-		'convert'          => '', // search|replace, search|replace, ...
-		'target_enc'       => 'UTF-8',
-		'defaults'         => '',
-		'set_empty'        => '0',
-		'format'           => '',
-		'form'             => '',
-		'pageform'         => '',
-		'pagevar'          => 'pg',
-		'pagepos'          => 'below',
-		'delim'            => ',',
-		'param_delim'      => '|',
-		'tag_delim'        => '|',
-		'concat'           => '1',
-		'concat_delim'     => ' ',
-		'transport'        => '',
-		'transport_opts'   => '',
-		'transport_config' => '',
-		'cache_time'       => '3600', // in seconds
-		'hashsize'         => '6:5',
-		'line_length'      => '8192',
-		'var_prefix'       => ', smd_xml_',
-		'limit'            => 0,
-		'offset'           => 0,
-		'wraptag'          => '',
-		'break'            => '',
-		'class'            => '',
-		'debug'            => '0',
-	), $atts));
+    extract(lAtts(array(
+        'data'             => '',
+        'datawrap'         => '',
+        'record'           => '',
+        'fields'           => '',
+        'skip'             => '',
+        'match'            => '',
+        'timeout'          => 10,
+        'transform'        => '',
+        'kill_spaces'      => 1,
+        'ontagstart'       => '',
+        'ontagend'         => '',
+        'load_atts'        => 'start', // (tag) start or end
+        'uppercase'        => '0',
+        'convert'          => '', // search|replace, search|replace, ...
+        'target_enc'       => 'UTF-8',
+        'defaults'         => '',
+        'set_empty'        => '0',
+        'format'           => '',
+        'form'             => '',
+        'pageform'         => '',
+        'pagevar'          => 'pg',
+        'pagepos'          => 'below',
+        'delim'            => ',',
+        'param_delim'      => '|',
+        'tag_delim'        => '|',
+        'concat'           => '1',
+        'concat_delim'     => ' ',
+        'transport'        => '',
+        'transport_opts'   => '',
+        'transport_config' => '',
+        'cache_time'       => '3600', // in seconds
+        'hashsize'         => '6:5',
+        'line_length'      => '8192',
+        'var_prefix'       => ', smd_xml_',
+        'limit'            => 0,
+        'offset'           => 0,
+        'wraptag'          => '',
+        'break'            => '',
+        'class'            => '',
+        'debug'            => '0',
+    ), $atts));
 
-	// This constant is only available in PHP 5.4+ so fake it for earlier versions
-	// and take the hit on them not knowing what the flag means
-	if (!defined('ENT_XML1')) {
-		define('ENT_XML1', 16);
-	}
+    // This constant is only available in PHP 5.4+ so fake it for earlier versions
+    // and take the hit on them not knowing what the flag means
+    if (!defined('ENT_XML1')) {
+        define('ENT_XML1', 16);
+    }
 
-	$src = '';
-	$thing = (empty($form)) ? $thing : fetch_form($form);
-	$soap_wrapped = false;
+    $src = '';
+    $thing = (empty($form)) ? $thing : fetch_form($form);
+    $soap_wrapped = false;
 
-	if (empty($data)) {
-		trigger_error("smd_xml requires a data source", E_USER_ERROR);
-		return;
-	}
-	if (empty($record)) {
-		trigger_error("smd_xml requires a record name within your data stream", E_USER_ERROR);
-		return;
-	}
+    if (empty($data)) {
+        trigger_error("smd_xml requires a data source", E_USER_ERROR);
+        return;
+    }
+    if (empty($record)) {
+        trigger_error("smd_xml requires a record name within your data stream", E_USER_ERROR);
+        return;
+    }
 
-	// Work out where the paging info is to appear
-	$pagebit = $rowinfo = array();
-	if ($pageform) {
-		$pagePosAllowed = array("below", "above");
-		$pageform = fetch_form($pageform);
-		$pagepos = str_replace('smd_', '', $pagepos); // For convenience
-		$pagepos = do_list($pagepos, $delim);
-		foreach ($pagepos as $pageitem) {
-			$pagebit[] = (in_array($pageitem, $pagePosAllowed)) ? $pageitem : $pagePosAllowed[0];
-		}
-	}
+    // Work out where the paging info is to appear
+    $pagebit = $rowinfo = array();
+    if ($pageform) {
+        $pagePosAllowed = array("below", "above");
+        $pageform = fetch_form($pageform);
+        $pagepos = str_replace('smd_', '', $pagepos); // For convenience
+        $pagepos = do_list($pagepos, $delim);
+        foreach ($pagepos as $pageitem) {
+            $pagebit[] = (in_array($pageitem, $pagePosAllowed)) ? $pageitem : $pagePosAllowed[0];
+        }
+    }
 
-	$target_enc = (in_array($target_enc, array('ISO-8859-1', 'US-ASCII', 'UTF-8'))) ? $target_enc : 'UTF-8';
+    $target_enc = (in_array($target_enc, array('ISO-8859-1', 'US-ASCII', 'UTF-8'))) ? $target_enc : 'UTF-8';
 
-	// Extract the prefixes
-	$prefixes = do_list($var_prefix);
-	$tag_prefix = $prefixes[0];
-	$page_prefix = isset($prefixes[1]) ? $prefixes[1] : $tag_prefix;
+    // Extract the prefixes
+    $prefixes = do_list($var_prefix);
+    $tag_prefix = $prefixes[0];
+    $page_prefix = isset($prefixes[1]) ? $prefixes[1] : $tag_prefix;
 
-	// Make a unique hash value for this instance so the XML document can be cached in txp_prefs
-	$uniq = '';
-	$md5 = md5($data.$record.$fields);
-	list($hashLen, $hashSkip) = explode(':', $hashsize);
-	for ($idx = 0, $cnt = 0; $cnt < $hashLen; $cnt++, $idx = (($idx+$hashSkip) % strlen($md5))) {
-		$uniq .= $md5[$idx];
-	}
+    // Make a unique hash value for this instance so the XML document can be cached in txp_prefs
+    $uniq = '';
+    $md5 = md5($data.$record.$fields);
+    list($hashLen, $hashSkip) = explode(':', $hashsize);
+    for ($idx = 0, $cnt = 0; $cnt < $hashLen; $cnt++, $idx = (($idx+$hashSkip) % strlen($md5))) {
+        $uniq .= $md5[$idx];
+    }
 
-	$var_lastmod = 'smd_xml_lmod_'.$uniq;
-	$var_data = 'smd_xml_data_'.$uniq;
-	$lastmod = get_pref($var_lastmod, 0);
-	$read_cache = (($cache_time > 0) && ((time() - $lastmod) < $cache_time)) ? true : false;
-	$crush = function_exists('gzcompress') && function_exists('gzuncompress');
-	$pagevar = ($pagevar == 'SMD_XML_UNIQUE_ID') ? $uniq : $pagevar;
+    $var_lastmod = 'smd_xml_lmod_'.$uniq;
+    $var_data = 'smd_xml_data_'.$uniq;
+    $lastmod = get_pref($var_lastmod, 0);
+    $read_cache = (($cache_time > 0) && ((time() - $lastmod) < $cache_time)) ? true : false;
+    $crush = function_exists('gzcompress') && function_exists('gzuncompress');
+    $pagevar = ($pagevar == 'SMD_XML_UNIQUE_ID') ? $uniq : $pagevar;
 
-	// Cached document is gzipped and then (yuk!) base64'd if zlib is compiled in.
-	// Would prefer to store binary data directly but trying to insert it into a txp_prefs
-	// text field always gives problems on insertion and/or retrieval
-	if ($read_cache) {
-		if ($debug > 1) {
-			trace_add ('[smd_xml reading cache '.$var_data.']');
-		}
-		$src = $crush ? gzuncompress(base64_decode(get_pref($var_data))) : get_pref($var_data);
-	} else {
-		if ((strpos($data, 'http:') === 0) || (strpos($data, 'https:') === 0) || (strpos($data, 'ftp:') === 0)) {
-			// The data is to be fetched from a URL.
-			// Has the transport mechanism been specified? If not, choose one
-			if (!$transport) {
-				if ( function_exists('curl_version') ) {
-					$transport = 'curl';
-				} else if ( function_exists('fsockopen') ) {
-					$transport = 'fsock';
-				} else {
-					$transport = '';
-				}
-			}
+    // Cached document is gzipped and then (yuk!) base64'd if zlib is compiled in.
+    // Would prefer to store binary data directly but trying to insert it into a txp_prefs
+    // text field always gives problems on insertion and/or retrieval
+    if ($read_cache) {
+        if ($debug > 1) {
+            trace_add ('[smd_xml reading cache '.$var_data.']');
+        }
+        $src = $crush ? gzuncompress(base64_decode(get_pref($var_data))) : get_pref($var_data);
+    } else {
+        if ((strpos($data, 'http:') === 0) || (strpos($data, 'https:') === 0) || (strpos($data, 'ftp:') === 0)) {
+            // The data is to be fetched from a URL.
+            // Has the transport mechanism been specified? If not, choose one
+            if (!$transport) {
+                if ( function_exists('curl_version') ) {
+                    $transport = 'curl';
+                } else if ( function_exists('fsockopen') ) {
+                    $transport = 'fsock';
+                } else {
+                    $transport = '';
+                }
+            }
 
-			$headers = smd_xml_headers($transport_config, $delim, $param_delim);
+            $headers = smd_xml_headers($transport_config, $delim, $param_delim);
 
-			switch ($transport) {
-				case 'curl':
-					$src = smd_xml_curl($data, $timeout, $headers);
-				break;
-				case 'fsock':
-					$url = parse_url($data);
-					switch ($url['scheme']) {
-						case 'https':
-							$url['scheme'] = 'ssl://';
-							$url['port'] = 443;
-						break;
-						case 'ftp':
-							$url['scheme'] = '';
-							$url['port'] = 21;
-						break;
-						case 'http':
-						default:
-							$url['scheme'] = '';
-							$url['port'] = 80;
-					}
-					$fp = fsockopen ($url['scheme'] . $url['host'], $url['port'], $errno, $errstr, $timeout);
+            switch ($transport) {
+                case 'curl':
+                    $src = smd_xml_curl($data, $timeout, $headers);
+                break;
+                case 'fsock':
+                    $url = parse_url($data);
+                    switch ($url['scheme']) {
+                        case 'https':
+                            $url['scheme'] = 'ssl://';
+                            $url['port'] = 443;
+                        break;
+                        case 'ftp':
+                            $url['scheme'] = '';
+                            $url['port'] = 21;
+                        break;
+                        case 'http':
+                        default:
+                            $url['scheme'] = '';
+                            $url['port'] = 80;
+                    }
+                    $fp = fsockopen ($url['scheme'] . $url['host'], $url['port'], $errno, $errstr, $timeout);
 
-					$qry = 'GET '.$url['path'] . ((isset($url['query'])) ? '?'.$url['query'] : '');
-					$qry .= " HTTP/1.0\r\n";
-					$qry .= "Host: ".$url['host']."\r\n";
+                    $qry = 'GET '.$url['path'] . ((isset($url['query'])) ? '?'.$url['query'] : '');
+                    $qry .= " HTTP/1.0\r\n";
+                    $qry .= "Host: ".$url['host']."\r\n";
 
-					$validHeaders = array(
-						'accept'    => 'Accept',
-						'charset'   => 'Accept-Charset',
-						'date'      => 'Date',
-						'lang'      => 'Accept-Language',
-						'pragma'    => 'Pragma',
-						'useragent' => 'User-Agent',
-					);
+                    $validHeaders = array(
+                        'accept'    => 'Accept',
+                        'charset'   => 'Accept-Charset',
+                        'date'      => 'Date',
+                        'lang'      => 'Accept-Language',
+                        'pragma'    => 'Pragma',
+                        'useragent' => 'User-Agent',
+                    );
 
-					foreach ($headers as $key => $value) {
-						if (array_key_exists($key, $validHeaders)) {
-							$qry .= $validHeaders[$key] . ': ' . $value . "\r\n";
-						}
-					}
+                    foreach ($headers as $key => $value) {
+                        if (array_key_exists($key, $validHeaders)) {
+                            $qry .= $validHeaders[$key] . ': ' . $value . "\r\n";
+                        }
+                    }
 
-					$qry .= "\r\n";
+                    $qry .= "\r\n";
 
-					fputs($fp, $qry);
-					stream_set_timeout($fp, $timeout);
-					$info = stream_get_meta_data($fp);
+                    fputs($fp, $qry);
+                    stream_set_timeout($fp, $timeout);
+                    $info = stream_get_meta_data($fp);
 
-					$hdrs = true;
-					while ((!feof($fp)) && (!$info['timed_out'])) {
-						$line = fgets($fp, $line_length);
-						$line = preg_replace("[\r\n]", "", $line);
-						if ($hdrs == false) {
-							$src .= $line."\n";
-						}
-						if (strlen($line) == 0) $hdrs = false;
-					}
-					if ($info['timed_out']) {
-						$src = '';
-					}
-					fclose($fp);
-				break;
-				case 'soap':
-					ini_set('soap.wsdl_cache_enabled', '0');
-					if (class_exists('SoapClient')) {
-						$url = $data;
-						$url .= (stripos($url, '?WSDL') === false) ? '?WSDL' : '';
+                    $hdrs = true;
+                    while ((!feof($fp)) && (!$info['timed_out'])) {
+                        $line = fgets($fp, $line_length);
+                        $line = preg_replace("[\r\n]", "", $line);
+                        if ($hdrs == false) {
+                            $src .= $line."\n";
+                        }
+                        if (strlen($line) == 0) $hdrs = false;
+                    }
+                    if ($info['timed_out']) {
+                        $src = '';
+                    }
+                    fclose($fp);
+                break;
+                case 'soap':
+                    ini_set('soap.wsdl_cache_enabled', '0');
+                    if (class_exists('SoapClient')) {
+                        $url = $data;
+                        $url .= (stripos($url, '?WSDL') === false) ? '?WSDL' : '';
 
-						$client = '';
+                        $client = '';
 
-						try {
-							$client = new SoapClient($url);
-						} catch (SoapFault $E) {
-							echo $E->faultstring;
-							$src = '';
-						}
+                        try {
+                            $client = new SoapClient($url);
+                        } catch (SoapFault $E) {
+                            echo $E->faultstring;
+                            $src = '';
+                        }
 
-						if ($client) {
-							// Use explode() because do_list() removes spaces
-							$transport_config = explode($delim, $transport_config);
-							$tcfg = array();
-							foreach ($transport_config as $transopt) {
-								$topts = explode($param_delim, $transopt);
-								if (count($topts) == 2) {
-									$tcfg[$topts[0]] = $topts[1];
-								}
-							}
+                        if ($client) {
+                            // Use explode() because do_list() removes spaces
+                            $transport_config = explode($delim, $transport_config);
+                            $tcfg = array();
+                            foreach ($transport_config as $transopt) {
+                                $topts = explode($param_delim, $transopt);
+                                if (count($topts) == 2) {
+                                    $tcfg[$topts[0]] = $topts[1];
+                                }
+                            }
 
-							$tcfg['soap_delim'] = isset($tcfg['soap_delim']) ? $tcfg['soap_delim'] : $param_delim;
-							$tcfg['soap_type_input'] = isset($tcfg['soap_type_input']) ? $tcfg['soap_type_input'] : 'nvpairs';
-							$tcfg['soap_type_output'] = isset($tcfg['soap_type_output']) ? $tcfg['soap_type_output'] : '';
-							$tcfg['soap_numeric_wrap'] = isset($tcfg['soap_numeric_wrap']) ? $tcfg['soap_numeric_wrap'] : $record;
+                            $tcfg['soap_delim'] = isset($tcfg['soap_delim']) ? $tcfg['soap_delim'] : $param_delim;
+                            $tcfg['soap_type_input'] = isset($tcfg['soap_type_input']) ? $tcfg['soap_type_input'] : 'nvpairs';
+                            $tcfg['soap_type_output'] = isset($tcfg['soap_type_output']) ? $tcfg['soap_type_output'] : '';
+                            $tcfg['soap_numeric_wrap'] = isset($tcfg['soap_numeric_wrap']) ? $tcfg['soap_numeric_wrap'] : $record;
 
-							$transItems = do_list($transport_opts, $delim);
-							$cliFn = $transItems[0];
-							$params = array();
+                            $transItems = do_list($transport_opts, $delim);
+                            $cliFn = $transItems[0];
+                            $params = array();
 
-							switch ($tcfg['soap_type_input']) {
-								case 'nvpairs':
-									$param = do_list($transItems[1], $param_delim);
-									$num = (count($param) / 2);
-									for ($idx = 0; $idx < $num; $idx++) {
-										$key = array_shift($param);
-										$val = array_shift($param);
-										$params[$key] = $val;
-									}
-								break;
-								case 'xml':
-									$doc = new DOMDocument();
-									$doc->preserveWhiteSpace = false;
-									$doc->loadXML($transItems[1]);
-									$params = smd_xml_to_array($doc->documentElement);
-									if (isset($tcfg['soap_wrap'])) {
-										$params[$tcfg['soap_wrap']] = $params;
-									}
-								break;
-							}
-							$resParts = do_list($transItems[2], $param_delim);
-							$resFn = array_shift($resParts);
+                            switch ($tcfg['soap_type_input']) {
+                                case 'nvpairs':
+                                    $param = do_list($transItems[1], $param_delim);
+                                    $num = (count($param) / 2);
+                                    for ($idx = 0; $idx < $num; $idx++) {
+                                        $key = array_shift($param);
+                                        $val = array_shift($param);
+                                        $params[$key] = $val;
+                                    }
+                                break;
+                                case 'xml':
+                                    $doc = new DOMDocument();
+                                    $doc->preserveWhiteSpace = false;
+                                    $doc->loadXML($transItems[1]);
+                                    $params = smd_xml_to_array($doc->documentElement);
+                                    if (isset($tcfg['soap_wrap'])) {
+                                        $params[$tcfg['soap_wrap']] = $params;
+                                    }
+                                break;
+                            }
+                            $resParts = do_list($transItems[2], $param_delim);
+                            $resFn = array_shift($resParts);
 
-							$result = '';
-							try {
-							   $result = $client->$cliFn($params);
-							} catch (SoapFault $E) {
-							   echo $E->faultstring;
-							}
+                            $result = '';
+                            try {
+                               $result = $client->$cliFn($params);
+                            } catch (SoapFault $E) {
+                               echo $E->faultstring;
+                            }
 
-							if ($result) {
-								if ($resFn) {
-									try {
-										$src = $result->$resFn;
-										if ($resParts) {
-											$srcbobs = array();
-											foreach ($resParts as $resIdx) {
-												$srcbobs[] = $src->$resIdx;
-											}
+                            if ($result) {
+                                if ($resFn) {
+                                    try {
+                                        $src = $result->$resFn;
+                                        if ($resParts) {
+                                            $srcbobs = array();
+                                            foreach ($resParts as $resIdx) {
+                                                $srcbobs[] = $src->$resIdx;
+                                            }
 
-											$src = join($tcfg['soap_delim'], $srcbobs);
-										}
-										switch ($tcfg['soap_type_output']) {
-											case 'xml':
-												// Oh lordy me -- just to convert stdClass:: format to associative array
-												$xmlbld = new smd_xml_build_data(json_decode(json_encode($src), true), $datawrap, $tcfg['soap_numeric_wrap']);
-												$soap_wrapped = true;
-												$src = $xmlbld->getData();
-											break;
-										}
-									} catch (SoapFault $E) {
-									   echo $E->faultstring;
-									}
-								} else {
-									$src = $result;
-								}
-							} else {
-								$src = '';
-							}
-						}
-					} else {
-						$src = '';
-					}
-				break;
-				default:
-					$src = '';
-			}
-		} else  {
-			// Assume data is presented in raw XML
-			$src = $data;
-		}
-	}
+                                            $src = join($tcfg['soap_delim'], $srcbobs);
+                                        }
+                                        switch ($tcfg['soap_type_output']) {
+                                            case 'xml':
+                                                // Oh lordy me -- just to convert stdClass:: format to associative array
+                                                $xmlbld = new smd_xml_build_data(json_decode(json_encode($src), true), $datawrap, $tcfg['soap_numeric_wrap']);
+                                                $soap_wrapped = true;
+                                                $src = $xmlbld->getData();
+                                            break;
+                                        }
+                                    } catch (SoapFault $E) {
+                                       echo $E->faultstring;
+                                    }
+                                } else {
+                                    $src = $result;
+                                }
+                            } else {
+                                $src = '';
+                            }
+                        }
+                    } else {
+                        $src = '';
+                    }
+                break;
+                default:
+                    $src = '';
+            }
+        } else  {
+            // Assume data is presented in raw XML
+            $src = $data;
+        }
+    }
 
-	// Remove inter-tag whitespace: highly recommended, but makes the feed less easy to debug
-	// so you may elect to turn it off while testing
-	if ($kill_spaces) {
-		$src = preg_replace("/>"."[[:space:]]+"."</i", "><", $src);
-	}
+    // Remove inter-tag whitespace: highly recommended, but makes the feed less easy to debug
+    // so you may elect to turn it off while testing
+    if ($kill_spaces) {
+        $src = preg_replace("/>"."[[:space:]]+"."</i", "><", $src);
+    }
 
-	// Perform transformations on the fetched source
-	if ($transform) {
-		$xforms = do_list($transform, $delim);
-		foreach ($xforms as $xform) {
-			$tops = do_list($xform, $param_delim);
-			$ttyp = array_shift($tops);
-			switch ($ttyp) {
-				case 'xsl':
-					$xsl = smd_xml_curl($tops[0], $timeout);
-					$src = smd_xml_xsl_transform($src, $xsl);
-				break;
-				case 'replace':
-					$src = preg_replace($tops[0], (isset($tops[1]) ? $tops[1] : ''), $src);
-				break;
-			}
-		}
-	}
+    // Perform transformations on the fetched source
+    if ($transform) {
+        $xforms = do_list($transform, $delim);
+        foreach ($xforms as $xform) {
+            $tops = do_list($xform, $param_delim);
+            $ttyp = array_shift($tops);
+            switch ($ttyp) {
+                case 'xsl':
+                    $xsl = smd_xml_curl($tops[0], $timeout);
+                    $src = smd_xml_xsl_transform($src, $xsl);
+                break;
+                case 'replace':
+                    $src = preg_replace($tops[0], (isset($tops[1]) ? $tops[1] : ''), $src);
+                break;
+            }
+        }
+    }
 
-	// Store the current document in the cache and datestamp it
-	if ($cache_time > 0 && !$read_cache) {
-		$srcinfo = $crush ? base64_encode(gzcompress($src)) : doSlash($src);
-		set_pref($var_lastmod, time(), 'smd_xml', PREF_HIDDEN, 'text_input');
-		set_pref($var_data, $srcinfo, 'smd_xml', PREF_HIDDEN, 'text_input');
-	}
+    // Store the current document in the cache and datestamp it
+    if ($cache_time > 0 && !$read_cache) {
+        $srcinfo = $crush ? base64_encode(gzcompress($src)) : doSlash($src);
+        set_pref($var_lastmod, time(), 'smd_xml', PREF_HIDDEN, 'text_input');
+        set_pref($var_data, $srcinfo, 'smd_xml', PREF_HIDDEN, 'text_input');
+    }
 
-	// Make up a replacement array for decoded entities...
-	$conversions = array();
-	$convert = do_list($convert, $delim);
-	foreach ($convert as $pair) {
-		if (empty($pair)) continue;
+    // Make up a replacement array for decoded entities...
+    $conversions = array();
+    $convert = do_list($convert, $delim);
+    foreach ($convert as $pair) {
+        if (empty($pair)) continue;
 
-		$pair = do_list($pair, $param_delim);
-		$conversions[$pair[0]] = $pair[1];
-	}
+        $pair = do_list($pair, $param_delim);
+        $conversions[$pair[0]] = $pair[1];
+    }
 
-	if ($src && ($debug > 1)) {
-		trace_add ('[smd_xml conversions: ' . print_r($conversions, true) . ']');
-	}
+    if ($src && ($debug > 1)) {
+        trace_add ('[smd_xml conversions: ' . print_r($conversions, true) . ']');
+    }
 
-	// ... and replace them
-	$src = strtr($src, $conversions);
+    // ... and replace them
+    $src = strtr($src, $conversions);
 
-	// Wrap if necessary
-	if ($datawrap && !$soap_wrapped) {
-		$src = "<$datawrap>$src</$datawrap>";
-	}
+    // Wrap if necessary
+    if ($datawrap && !$soap_wrapped) {
+        $src = "<$datawrap>$src</$datawrap>";
+    }
 
-	if ($debug > 2) {
-		trace_add ('[smd_xml filtered source: ' . $src . ']');
-	}
+    if ($debug > 2) {
+        trace_add ('[smd_xml filtered source: ' . $src . ']');
+    }
 
-	// Set up any ontag processing
-	$ontagstart = do_list($ontagstart);
-	$ontagend = do_list($ontagend);
-	$watchStart = $watchEnd = $watchForm = array();
-	foreach ($ontagstart as $ontag) {
-		if ($ontag == '') continue;
-		$parts = explode($param_delim, $ontag);
-		$frm = array_shift($parts);
-		$watchStart[$frm] = $parts;
-		$watchForm[$frm] = fetch_form($frm);
-	}
-	foreach ($ontagend as $ontag) {
-		if ($ontag == '') continue;
-		$parts = explode($param_delim, $ontag);
-		$frm = array_shift($parts);
-		$watchEnd[$frm] = $parts;
-		$watchForm[$frm] = fetch_form($frm);
-	}
+    // Set up any ontag processing
+    $ontagstart = do_list($ontagstart);
+    $ontagend = do_list($ontagend);
+    $watchStart = $watchEnd = $watchForm = array();
+    foreach ($ontagstart as $ontag) {
+        if ($ontag == '') continue;
+        $parts = explode($param_delim, $ontag);
+        $frm = array_shift($parts);
+        $watchStart[$frm] = $parts;
+        $watchForm[$frm] = fetch_form($frm);
+    }
+    foreach ($ontagend as $ontag) {
+        if ($ontag == '') continue;
+        $parts = explode($param_delim, $ontag);
+        $frm = array_shift($parts);
+        $watchEnd[$frm] = $parts;
+        $watchForm[$frm] = fetch_form($frm);
+    }
 
-	if ($src && ($debug > 1)) {
-		trace_add ('[smd_xml start watchers: ' . print_r($watchStart, true) . ']');
-		trace_add ('[smd_xml end watchers: ' . print_r($watchEnd, true) . ']');
-		trace_add ('[smd_xml watch forms: ' . print_r($watchForm, true) . ']');
-	}
+    if ($src && ($debug > 1)) {
+        trace_add ('[smd_xml start watchers: ' . print_r($watchStart, true) . ']');
+        trace_add ('[smd_xml end watchers: ' . print_r($watchEnd, true) . ']');
+        trace_add ('[smd_xml watch forms: ' . print_r($watchForm, true) . ']');
+    }
 
-	// Set up any defaults
-	$defaults = do_list($defaults, $delim);
-	$dflts = array();
-	foreach ($defaults as $dflt) {
-		if ($dflt == '') continue;
-		$parts = explode($param_delim, $dflt);
-		$dflts[$parts[0]] = $parts[1];
-	}
-	$defaults = $dflts;
+    // Set up any defaults
+    $defaults = do_list($defaults, $delim);
+    $dflts = array();
+    foreach ($defaults as $dflt) {
+        if ($dflt == '') continue;
+        $parts = explode($param_delim, $dflt);
+        $dflts[$parts[0]] = $parts[1];
+    }
+    $defaults = $dflts;
 
-	// Set up any formatting
-	$format = do_list($format, $delim);
-	$formats = array();
-	foreach ($format as $frmdef) {
-		if ($frmdef == '') continue;
-		$parts = explode($param_delim, $frmdef);
-		$formats['type'][$parts[0]] = $parts[1];
-		for($idx = 0; $idx < count($parts)-2; $idx++) {
-			$formats['data'][$parts[0]][] = $parts[$idx+2];
-		}
-	}
+    // Set up any formatting
+    $format = do_list($format, $delim);
+    $formats = array();
+    foreach ($format as $frmdef) {
+        if ($frmdef == '') continue;
+        $parts = explode($param_delim, $frmdef);
+        $formats['type'][$parts[0]] = $parts[1];
+        for($idx = 0; $idx < count($parts)-2; $idx++) {
+            $formats['data'][$parts[0]][] = $parts[$idx+2];
+        }
+    }
 
-	// Set up any matches
-	$match = do_list($match, $delim);
-	$matches = array();
-	foreach ($match as $item) {
-		if ($item == '') continue;
-		$parts = explode($param_delim, $item);
-		$matches[$parts[0]] = $parts[1];
-	}
-	$match = $matches;
+    // Set up any matches
+    $match = do_list($match, $delim);
+    $matches = array();
+    foreach ($match as $item) {
+        if ($item == '') continue;
+        $parts = explode($param_delim, $item);
+        $matches[$parts[0]] = $parts[1];
+    }
+    $match = $matches;
 
-	if ($src && ($debug > 1)) {
-		if ($defaults) {
-			trace_add ('[smd_xml defaults: ' . print_r($defaults, true) . ']');
-		}
-		if ($formats) {
-			trace_add ('[smd_xml formats: ' . print_r($formats, true) . ']');
-		}
-		if ($match) {
-			trace_add ('[smd_xml matches: ' . print_r($match, true) . ']');
-		}
-	}
+    if ($src && ($debug > 1)) {
+        if ($defaults) {
+            trace_add ('[smd_xml defaults: ' . print_r($defaults, true) . ']');
+        }
+        if ($formats) {
+            trace_add ('[smd_xml formats: ' . print_r($formats, true) . ']');
+        }
+        if ($match) {
+            trace_add ('[smd_xml matches: ' . print_r($match, true) . ']');
+        }
+    }
 
-	if (!empty($src)) {
-		// Paging information
-		$rowinfo['numrecs'] = substr_count($src, '<'.$record);
-		$rowinfo['page_rowcnt'] = 0;
-		$rowinfo['limit'] = ($limit < $rowinfo['numrecs']) ? $limit : 0;
-		if ($offset >= 0) {
-			if ($offset < $rowinfo['numrecs']) {
-				$rowinfo['offset'] = $offset;
-			} else {
-				$rowinfo['offset'] = $rowinfo['numrecs'];
-				$rowinfo['limit'] = 0;
-			}
-		} else {
-			$negoff = $rowinfo['numrecs'] + $offset;
-			if ($negoff > 0) {
-				$rowinfo['offset'] = $negoff;
-			} else {
-				$rowinfo['offset'] = 0;
-				$rowinfo['limit'] = $rowinfo['numrecs'];
-			}
-		}
+    if (!empty($src)) {
+        // Paging information
+        $rowinfo['numrecs'] = substr_count($src, '<'.$record);
+        $rowinfo['page_rowcnt'] = 0;
+        $rowinfo['limit'] = ($limit < $rowinfo['numrecs']) ? $limit : 0;
+        if ($offset >= 0) {
+            if ($offset < $rowinfo['numrecs']) {
+                $rowinfo['offset'] = $offset;
+            } else {
+                $rowinfo['offset'] = $rowinfo['numrecs'];
+                $rowinfo['limit'] = 0;
+            }
+        } else {
+            $negoff = $rowinfo['numrecs'] + $offset;
+            if ($negoff > 0) {
+                $rowinfo['offset'] = $negoff;
+            } else {
+                $rowinfo['offset'] = 0;
+                $rowinfo['limit'] = $rowinfo['numrecs'];
+            }
+        }
 
-		// Re-assign the atts in case they've been changed by reaching the bounds of the document
-		$offset = $rowinfo['offset'];
-		$limit = $rowinfo['limit'];
+        // Re-assign the atts in case they've been changed by reaching the bounds of the document
+        $offset = $rowinfo['offset'];
+        $limit = $rowinfo['limit'];
 
-		if ($limit > 0) {
-			$keepsafe = $thispage;
-			$rowinfo['total'] = $rowinfo['numrecs'] - $offset;
-			$rowinfo['numPages'] = ceil($rowinfo['total'] / $limit);
-			$rowinfo['pg'] = (!gps($pagevar)) ? 1 : gps($pagevar);
-			$rowinfo['pgoffset'] = $offset + (($rowinfo['pg'] - 1) * $limit);
-			$rowinfo['prevpg'] = (($rowinfo['pg']-1) > 0) ? $rowinfo['pg']-1 : '';
-			$rowinfo['nextpg'] = (($rowinfo['pg']+1) <= $rowinfo['numPages']) ? $rowinfo['pg']+1 : '';
-			$rowinfo['pagerows'] = ($rowinfo['pg'] == $rowinfo['numPages']) ? $rowinfo['total']-($limit * ($rowinfo['numPages']-1)) : $limit;
-			$rowinfo['unique_id'] = $uniq;
+        if ($limit > 0) {
+            $keepsafe = $thispage;
+            $rowinfo['total'] = $rowinfo['numrecs'] - $offset;
+            $rowinfo['numPages'] = ceil($rowinfo['total'] / $limit);
+            $rowinfo['pg'] = (!gps($pagevar)) ? 1 : gps($pagevar);
+            $rowinfo['pgoffset'] = $offset + (($rowinfo['pg'] - 1) * $limit);
+            $rowinfo['prevpg'] = (($rowinfo['pg']-1) > 0) ? $rowinfo['pg']-1 : '';
+            $rowinfo['nextpg'] = (($rowinfo['pg']+1) <= $rowinfo['numPages']) ? $rowinfo['pg']+1 : '';
+            $rowinfo['pagerows'] = ($rowinfo['pg'] == $rowinfo['numPages']) ? $rowinfo['total']-($limit * ($rowinfo['numPages']-1)) : $limit;
+            $rowinfo['unique_id'] = $uniq;
 
-			// send paging info to txp:newer and txp:older
-			$pageout['pg'] = $rowinfo['pg'];
-			$pageout['numPages'] = $rowinfo['numPages'];
-			$pageout['s'] = $pretext['s'];
-			$pageout['c'] = $pretext['c'];
-			$pageout['grand_total'] = $rowinfo['numrecs'];
-			$pageout['total'] = $rowinfo['total'];
-			$thispage = $pageout;
-		} else {
-			$rowinfo['pgoffset'] = $offset;
-		}
+            // send paging info to txp:newer and txp:older
+            $pageout['pg'] = $rowinfo['pg'];
+            $pageout['numPages'] = $rowinfo['numPages'];
+            $pageout['s'] = $pretext['s'];
+            $pageout['c'] = $pretext['c'];
+            $pageout['grand_total'] = $rowinfo['numrecs'];
+            $pageout['total'] = $rowinfo['total'];
+            $thispage = $pageout;
+        } else {
+            $rowinfo['pgoffset'] = $offset;
+        }
 
-		$rowinfo['running_rowcnt'] = $rowinfo['pgoffset']-$offset;
-		$rowinfo['first_rec'] = $rowinfo['running_rowcnt'] + 1;
-		$rowinfo['last_rec'] = ($limit > 0) ? $rowinfo['first_rec'] + $rowinfo['pagerows'] - 1 : $rowinfo['numrecs'];
-		if ($limit > 0) {
-			$rowinfo['prev_rows'] = (($rowinfo['prevpg']) ? $limit : 0);
-			$rowinfo['next_rows'] = (($rowinfo['nextpg']) ? (($rowinfo['last_rec']+$limit+1) > $rowinfo['total'] ? $rowinfo['total']-$rowinfo['last_rec'] : $limit) : 0);
-		}
+        $rowinfo['running_rowcnt'] = $rowinfo['pgoffset']-$offset;
+        $rowinfo['first_rec'] = $rowinfo['running_rowcnt'] + 1;
+        $rowinfo['last_rec'] = ($limit > 0) ? $rowinfo['first_rec'] + $rowinfo['pagerows'] - 1 : $rowinfo['numrecs'];
+        if ($limit > 0) {
+            $rowinfo['prev_rows'] = (($rowinfo['prevpg']) ? $limit : 0);
+            $rowinfo['next_rows'] = (($rowinfo['nextpg']) ? (($rowinfo['last_rec']+$limit+1) > $rowinfo['total'] ? $rowinfo['total']-$rowinfo['last_rec'] : $limit) : 0);
+        }
 
-		if ($debug > 0) {
-			trace_add ('[smd_xml paging info: ' . print_r($rowinfo, true) . ']');
-		}
+        if ($debug > 0) {
+            trace_add ('[smd_xml paging info: ' . print_r($rowinfo, true) . ']');
+        }
 
-		// Do the dirty XML deed
-		$ref = new smd_xml_parser(array(
-			'src'          => $src,
-			'delim'        => $delim,
-			'param_delim'  => $param_delim,
-			'tag_delim'    => $tag_delim,
-			'concat'       => $concat,
-			'concat_delim' => $concat_delim,
-			'fields'       => $fields,
-			'skip'         => $skip,
-			'match'        => $match,
-			'record'       => $record,
-			'casefold'     => $uppercase,
-			'target_enc'   => $target_enc,
-			'tag_prefix'   => $tag_prefix,
-			'page_prefix'  => $page_prefix,
-			'defaults'     => $defaults,
-			'load_atts'    => $load_atts,
-			'watchStart'   => $watchStart,
-			'watchEnd'     => $watchEnd,
-			'watchForm'    => $watchForm,
-			'set_empty'    => $set_empty,
-			'formats'      => $formats,
-			'thing'        => $thing,
-			'rinfo'        => $rowinfo,
-			'debug'        => $debug,
-		));
+        // Do the dirty XML deed
+        $ref = new smd_xml_parser(array(
+            'src'          => $src,
+            'delim'        => $delim,
+            'param_delim'  => $param_delim,
+            'tag_delim'    => $tag_delim,
+            'concat'       => $concat,
+            'concat_delim' => $concat_delim,
+            'fields'       => $fields,
+            'skip'         => $skip,
+            'match'        => $match,
+            'record'       => $record,
+            'casefold'     => $uppercase,
+            'target_enc'   => $target_enc,
+            'tag_prefix'   => $tag_prefix,
+            'page_prefix'  => $page_prefix,
+            'defaults'     => $defaults,
+            'load_atts'    => $load_atts,
+            'watchStart'   => $watchStart,
+            'watchEnd'     => $watchEnd,
+            'watchForm'    => $watchForm,
+            'set_empty'    => $set_empty,
+            'formats'      => $formats,
+            'thing'        => $thing,
+            'rinfo'        => $rowinfo,
+            'debug'        => $debug,
+        ));
 
-		// Grab the parsed results
-		$result = $ref->getResults();
+        // Grab the parsed results
+        $result = $ref->getResults();
 
-		// Create the page form
-		$pageblock = '';
-		$finalout = $repagements = array();
+        // Create the page form
+        $pageblock = '';
+        $finalout = $repagements = array();
 
-		if ($rowinfo['limit'] > 0) {
-			$repagements['{'.$page_prefix.'totalrecs}'] = $rowinfo['total'];
-			$repagements['{'.$page_prefix.'pagerecs}']  = $rowinfo['pagerows'];
-			$repagements['{'.$page_prefix.'pages}']     = $rowinfo['numPages'];
-			$repagements['{'.$page_prefix.'prevpage}']  = $rowinfo['prevpg'];
-			$repagements['{'.$page_prefix.'thispage}']  = $rowinfo['pg'];
-			$repagements['{'.$page_prefix.'nextpage}']  = $rowinfo['nextpg'];
-			$repagements['{'.$page_prefix.'rec_start}'] = $rowinfo['first_rec'];
-			$repagements['{'.$page_prefix.'rec_end}']   = $rowinfo['last_rec'];
-			$repagements['{'.$page_prefix.'recs_prev}'] = $rowinfo['prev_rows'];
-			$repagements['{'.$page_prefix.'recs_next}'] = $rowinfo['next_rows'];
-			$repagements['{'.$page_prefix.'unique_id}'] = $rowinfo['unique_id'];
-			$smd_xml_pginfo = $repagements;
-			$pageblock = parse(strtr($pageform, $repagements));
-		}
+        if ($rowinfo['limit'] > 0) {
+            $repagements['{'.$page_prefix.'totalrecs}'] = $rowinfo['total'];
+            $repagements['{'.$page_prefix.'pagerecs}']  = $rowinfo['pagerows'];
+            $repagements['{'.$page_prefix.'pages}']     = $rowinfo['numPages'];
+            $repagements['{'.$page_prefix.'prevpage}']  = $rowinfo['prevpg'];
+            $repagements['{'.$page_prefix.'thispage}']  = $rowinfo['pg'];
+            $repagements['{'.$page_prefix.'nextpage}']  = $rowinfo['nextpg'];
+            $repagements['{'.$page_prefix.'rec_start}'] = $rowinfo['first_rec'];
+            $repagements['{'.$page_prefix.'rec_end}']   = $rowinfo['last_rec'];
+            $repagements['{'.$page_prefix.'recs_prev}'] = $rowinfo['prev_rows'];
+            $repagements['{'.$page_prefix.'recs_next}'] = $rowinfo['next_rows'];
+            $repagements['{'.$page_prefix.'unique_id}'] = $rowinfo['unique_id'];
+            $smd_xml_pginfo = $repagements;
+            $pageblock = parse(strtr($pageform, $repagements));
+        }
 
-		// Make up the final output
-		if (in_array("above", $pagebit)) {
-			$finalout[] = $pageblock;
-		}
-		$finalout[] = doWrap($result, $wraptag, $break, $class);
-		if (in_array("below", $pagebit)) {
-			$finalout[] = $pageblock;
-		}
+        // Make up the final output
+        if (in_array("above", $pagebit)) {
+            $finalout[] = $pageblock;
+        }
+        $finalout[] = doWrap($result, $wraptag, $break, $class);
+        if (in_array("below", $pagebit)) {
+            $finalout[] = $pageblock;
+        }
 
-		// Restore the paging outside the plugin container
-		if ($limit > 0) {
-			$thispage = $keepsafe;
-		}
+        // Restore the paging outside the plugin container
+        if ($limit > 0) {
+            $thispage = $keepsafe;
+        }
 
-		return join('', $finalout);
-	} else {
-		return '';
-	}
+        return join('', $finalout);
+    } else {
+        return '';
+    }
 }
 
 // Convenience tags to check if there's a prev/next page defined. Could also use smd_if
 function smd_xml_if_prev($atts, $thing)
 {
-	global $smd_xml_pginfo;
+    global $smd_xml_pginfo;
 
-	$res = $smd_xml_pginfo && $smd_xml_pginfo['{smd_xml_prevpage}'] != '';
-	return parse(EvalElse(strtr($thing, $smd_xml_pginfo), $res));
+    $res = $smd_xml_pginfo && $smd_xml_pginfo['{smd_xml_prevpage}'] != '';
+    return parse(EvalElse(strtr($thing, $smd_xml_pginfo), $res));
 }
 function smd_xml_if_next($atts, $thing)
 {
-	global $smd_xml_pginfo;
+    global $smd_xml_pginfo;
 
-	$res = $smd_xml_pginfo && $smd_xml_pginfo['{smd_xml_nextpage}'] != '';
-	return parse(EvalElse(strtr($thing, $smd_xml_pginfo), $res));
+    $res = $smd_xml_pginfo && $smd_xml_pginfo['{smd_xml_nextpage}'] != '';
+    return parse(EvalElse(strtr($thing, $smd_xml_pginfo), $res));
 }
 
 /*****************
@@ -678,64 +678,64 @@ function smd_xml_if_next($atts, $thing)
  */
 function smd_xml_curl($data, $timeout=10, $headers = array())
 {
-	$ret = false;
+    $ret = false;
 
-	// A useful subset of the available configuration parameters.
-	$validHeaders = array(
-		'binary'       => CURLOPT_BINARYTRANSFER, // bool
-		'cainfo'       => CURLOPT_CAINFO, // string
-		'capath'       => CURLOPT_CAPATH, // string
-		'certinfo'     => CURLOPT_CERTINFO, // bool
-		'crlf'         => CURLOPT_CRLF, // bool
-		'port'         => CURLOPT_PORT, // int
-		'proxy'        => CURLOPT_PROXY, // string
-		'proxytunnel'  => CURLOPT_HTTPPROXYTUNNEL, // bool
-		'proxyuserpwd' => CURLOPT_PROXYUSERPWD, // string
-		'netrc'        => CURLOPT_NETRC, // bool
-		'sslcert'      => CURLOPT_SSLCERT, // string
-		'useragent'    => CURLOPT_USERAGENT, // string
-		'verifypeer'   => CURLOPT_SSL_VERIFYPEER, // bool
-		'verbose'      => CURLOPT_VERBOSE, // bool
-	);
+    // A useful subset of the available configuration parameters.
+    $validHeaders = array(
+        'binary'       => CURLOPT_BINARYTRANSFER, // bool
+        'cainfo'       => CURLOPT_CAINFO, // string
+        'capath'       => CURLOPT_CAPATH, // string
+        'certinfo'     => CURLOPT_CERTINFO, // bool
+        'crlf'         => CURLOPT_CRLF, // bool
+        'port'         => CURLOPT_PORT, // int
+        'proxy'        => CURLOPT_PROXY, // string
+        'proxytunnel'  => CURLOPT_HTTPPROXYTUNNEL, // bool
+        'proxyuserpwd' => CURLOPT_PROXYUSERPWD, // string
+        'netrc'        => CURLOPT_NETRC, // bool
+        'sslcert'      => CURLOPT_SSLCERT, // string
+        'useragent'    => CURLOPT_USERAGENT, // string
+        'verifypeer'   => CURLOPT_SSL_VERIFYPEER, // bool
+        'verbose'      => CURLOPT_VERBOSE, // bool
+    );
 
-	$defaultHeaders = array(
-		'verbose' => false,
-	);
+    $defaultHeaders = array(
+        'verbose' => false,
+    );
 
-	// Defaults can be overridden by user values.
-	$headers = array_merge($defaultHeaders, $headers);
+    // Defaults can be overridden by user values.
+    $headers = array_merge($defaultHeaders, $headers);
 
-	if (function_exists('curl_version')) {
-		$c = curl_init();
-		curl_setopt($c, CURLOPT_URL, $data);
-		curl_setopt($c, CURLOPT_REFERER, hu);
-		curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($c, CURLOPT_TIMEOUT, $timeout);
+    if (function_exists('curl_version')) {
+        $c = curl_init();
+        curl_setopt($c, CURLOPT_URL, $data);
+        curl_setopt($c, CURLOPT_REFERER, hu);
+        curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($c, CURLOPT_TIMEOUT, $timeout);
 
-		foreach ($headers as $key => $value) {
-			if (array_key_exists($key, $validHeaders)) {
-				curl_setopt($c, $validHeaders[$key], $value);
-			}
-		}
+        foreach ($headers as $key => $value) {
+            if (array_key_exists($key, $validHeaders)) {
+                curl_setopt($c, $validHeaders[$key], $value);
+            }
+        }
 
-		$ret = curl_exec($c);
-	}
+        $ret = curl_exec($c);
+    }
 
-	return $ret;
+    return $ret;
 }
 
 // Transform an XML document using the given XSL stylesheet
 function smd_xml_xsl_transform($xml, $xsl)
 {
-	$ret = $xml;
+    $ret = $xml;
 
-	if (class_exists('XSLTProcessor')) {
-		$xslt = new XSLTProcessor();
-		$xslt->importStylesheet(new SimpleXMLElement($xsl));
-		$ret = $xslt->transformToXml(new SimpleXMLElement($xml));
-	}
+    if (class_exists('XSLTProcessor')) {
+        $xslt = new XSLTProcessor();
+        $xslt->importStylesheet(new SimpleXMLElement($xsl));
+        $ret = $xslt->transformToXml(new SimpleXMLElement($xml));
+    }
 
-	return $ret;
+    return $ret;
 }
 
 /**
@@ -748,501 +748,501 @@ function smd_xml_xsl_transform($xml, $xsl)
  */
 function smd_xml_headers($transport_config = array(), $delim = ',', $param_delim = '|')
 {
-	$headers = array(
-		'useragent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:25.0) Gecko/20100101 Firefox/25.0', // just picked one
-	);
+    $headers = array(
+        'useragent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:25.0) Gecko/20100101 Firefox/25.0', // just picked one
+    );
 
-	$headerPairs = do_list($transport_config, $delim);
+    $headerPairs = do_list($transport_config, $delim);
 
-	foreach ($headerPairs as $transopt) {
-		$topts = do_list($transopt, $param_delim);
+    foreach ($headerPairs as $transopt) {
+        $topts = do_list($transopt, $param_delim);
 
-		if (count($topts) === 2) {
-			$headers[$topts[0]] = $topts[1];
-		}
-	}
+        if (count($topts) === 2) {
+            $headers[$topts[0]] = $topts[1];
+        }
+    }
 
-	return $headers;
+    return $headers;
 }
 
 // Convert XML document to associative array
 // (from http://stackoverflow.com/questions/99350/php-associative-arrays-to-and-from-xml)
 function smd_xml_to_array($curr_node)
 {
-	$val_array = array();
-	$typ_array = array();
+    $val_array = array();
+    $typ_array = array();
 
-	foreach($curr_node->childNodes as $node) {
-		if ($node->nodeType == XML_ELEMENT_NODE) {
-			$val = smd_xml_to_array($node);
-			if (array_key_exists($node->tagName, $val_array)) {
-				if (!is_array($val_array[$node->tagName]) || $type_array[$node->tagName] == 'hash') {
-					$existing_val = $val_array[$node->tagName];
-					unset($val_array[$node->tagName]);
-					$val_array[$node->tagName][0] = $existing_val;
-					$type_array[$node->tagName] = 'array';
-				}
-				$val_array[$node->tagName][] = $val;
-			} else {
-				$val_array[$node->tagName] = $val;
-				if (is_array($val)) {
-					$type_array[$node->tagName] = 'hash';
-				}
-			} // end if array key exists
-		} // end if element node
-	} // end for each
+    foreach($curr_node->childNodes as $node) {
+        if ($node->nodeType == XML_ELEMENT_NODE) {
+            $val = smd_xml_to_array($node);
+            if (array_key_exists($node->tagName, $val_array)) {
+                if (!is_array($val_array[$node->tagName]) || $type_array[$node->tagName] == 'hash') {
+                    $existing_val = $val_array[$node->tagName];
+                    unset($val_array[$node->tagName]);
+                    $val_array[$node->tagName][0] = $existing_val;
+                    $type_array[$node->tagName] = 'array';
+                }
+                $val_array[$node->tagName][] = $val;
+            } else {
+                $val_array[$node->tagName] = $val;
+                if (is_array($val)) {
+                    $type_array[$node->tagName] = 'hash';
+                }
+            } // end if array key exists
+        } // end if element node
+    } // end for each
 
-	if (count($val_array) == 0) {
-		return $curr_node->nodeValue;
-	} else {
-		return $val_array;
-	}
+    if (count($val_array) == 0) {
+        return $curr_node->nodeValue;
+    } else {
+        return $val_array;
+    }
 }
 
 // Build an XML data set from associative array
 class smd_xml_build_data
 {
-	protected $xml, $last_idx, $recWrap;
+    protected $xml, $last_idx, $recWrap;
 
-	public function __construct($data, $startElement, $recWrap, $xml_version = '1.0', $xml_encoding = 'UTF-8')
-	{
-		$startElement = ($startElement) ? $startElement : 'fx_request';
-		if (!is_array($data)) {
-			$err = 'Invalid variable type supplied, expected array not found on line '.__LINE__." in Class: ".__CLASS__." Method: ".__METHOD__;
-			trigger_error($err);
-			return false;
-		}
-		$this->xml = new XmlWriter();
-		$this->xml->openMemory();
-		$this->xml->startDocument($xml_version, $xml_encoding);
-		$this->xml->startElement($startElement);
+    public function __construct($data, $startElement, $recWrap, $xml_version = '1.0', $xml_encoding = 'UTF-8')
+    {
+        $startElement = ($startElement) ? $startElement : 'fx_request';
+        if (!is_array($data)) {
+            $err = 'Invalid variable type supplied, expected array not found on line '.__LINE__." in Class: ".__CLASS__." Method: ".__METHOD__;
+            trigger_error($err);
+            return false;
+        }
+        $this->xml = new XmlWriter();
+        $this->xml->openMemory();
+        $this->xml->startDocument($xml_version, $xml_encoding);
+        $this->xml->startElement($startElement);
 
-		$this->last_idx = 0;
-		$this->recWrap = $recWrap;
-		$this->write($this->xml, $data, $startElement);
+        $this->last_idx = 0;
+        $this->recWrap = $recWrap;
+        $this->write($this->xml, $data, $startElement);
 
-		$this->xml->endElement();
-	}
+        $this->xml->endElement();
+    }
 
-	// Standard getter
-	public function getData()
-	{
-		return $this->xml->outputMemory(true);
-	}
+    // Standard getter
+    public function getData()
+    {
+        return $this->xml->outputMemory(true);
+    }
 
-	// Recurse array elements and build XML tag tree
-	public function write(XMLWriter $xml, $data, $parent)
-	{
-		foreach ($data as $key => $value) {
-			// Nodes that aren't valid attributes get given an array index
-			if (!preg_match('/[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*/', $key)) {
-				$key = ($this->recWrap) ? $this->recWrap : ($parent . '_' . (is_numeric($key) ? $key : $last_idx));
-			}
-			if (is_array($value)) {
-				$xml->startElement($key);
-				$this->write($xml, $value, $key);
-				$xml->endElement();
-				continue;
-			}
-			$xml->writeElement($key, $value);
-			$this->last_idx++;
-		}
-	}
+    // Recurse array elements and build XML tag tree
+    public function write(XMLWriter $xml, $data, $parent)
+    {
+        foreach ($data as $key => $value) {
+            // Nodes that aren't valid attributes get given an array index
+            if (!preg_match('/[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*/', $key)) {
+                $key = ($this->recWrap) ? $this->recWrap : ($parent . '_' . (is_numeric($key) ? $key : $last_idx));
+            }
+            if (is_array($value)) {
+                $xml->startElement($key);
+                $this->write($xml, $value, $key);
+                $xml->endElement();
+                continue;
+            }
+            $xml->writeElement($key, $value);
+            $this->last_idx++;
+        }
+    }
 }
 
 // Dirty XML work done here
 class smd_xml_parser {
-	protected $data, $rec;
-	protected $fields, $subfields, $treefields;
-	protected $skip, $match, $defaults, $set_empty;
-	protected $casefold, $outenc;
-	protected $load_atts, $watchStart, $watchEnd, $watchForm;
-	protected $formats, $tag_prefix, $page_prefix;
+    protected $data, $rec;
+    protected $fields, $subfields, $treefields;
+    protected $skip, $match, $defaults, $set_empty;
+    protected $casefold, $outenc;
+    protected $load_atts, $watchStart, $watchEnd, $watchForm;
+    protected $formats, $tag_prefix, $page_prefix;
 
-	protected $intag, $indata;
-	protected $skiptag, $xmltag, $xmlatts, $xmldata;
-	protected $thing, $out;
-	protected $delim, $concat, $tdelim, $cdelim;
-	protected $rowinfo, $show_record;
-	protected $debug;
+    protected $intag, $indata;
+    protected $skiptag, $xmltag, $xmlatts, $xmldata;
+    protected $thing, $out;
+    protected $delim, $concat, $tdelim, $cdelim;
+    protected $rowinfo, $show_record;
+    protected $debug;
 
-	/**
-	* constructor
-	*/
-	public function __construct($atts)
-	{
-		$this->data        = $atts['src'];
-		$this->delim       = $atts['delim'];
-		$this->tdelim      = $atts['tag_delim'];
-		$this->concat      = $atts['concat'];
-		$this->cdelim      = $atts['concat_delim'];
-		$this->fields      = do_list($atts['fields'], $this->delim);
-		$this->skip        = do_list($atts['skip'], $this->delim);
-		$this->match       = $atts['match'];
-		$this->rec         = $atts['record'];
-		$this->casefold    = $atts['casefold'];
-		$this->outenc      = $atts['target_enc'];
-		$this->tag_prefix  = $atts['tag_prefix'];
-		$this->page_prefix = $atts['page_prefix'];
-		$this->defaults    = $atts['defaults'];
-		$this->load_atts   = $atts['load_atts'];
-		$this->watchStart  = $atts['watchStart'];
-		$this->watchEnd    = $atts['watchEnd'];
-		$this->watchForm   = $atts['watchForm'];
-		$this->set_empty   = $atts['set_empty'];
-		$this->formats     = $atts['formats'];
-		$this->thing       = $atts['thing'];
-		$this->rowinfo     = $atts['rinfo'];
-		$this->debug       = $atts['debug'];
+    /**
+    * constructor
+    */
+    public function __construct($atts)
+    {
+        $this->data        = $atts['src'];
+        $this->delim       = $atts['delim'];
+        $this->tdelim      = $atts['tag_delim'];
+        $this->concat      = $atts['concat'];
+        $this->cdelim      = $atts['concat_delim'];
+        $this->fields      = do_list($atts['fields'], $this->delim);
+        $this->skip        = do_list($atts['skip'], $this->delim);
+        $this->match       = $atts['match'];
+        $this->rec         = $atts['record'];
+        $this->casefold    = $atts['casefold'];
+        $this->outenc      = $atts['target_enc'];
+        $this->tag_prefix  = $atts['tag_prefix'];
+        $this->page_prefix = $atts['page_prefix'];
+        $this->defaults    = $atts['defaults'];
+        $this->load_atts   = $atts['load_atts'];
+        $this->watchStart  = $atts['watchStart'];
+        $this->watchEnd    = $atts['watchEnd'];
+        $this->watchForm   = $atts['watchForm'];
+        $this->set_empty   = $atts['set_empty'];
+        $this->formats     = $atts['formats'];
+        $this->thing       = $atts['thing'];
+        $this->rowinfo     = $atts['rinfo'];
+        $this->debug       = $atts['debug'];
 
-		$this->subfields  = array();
-		$this->treefields = array();
-		$this->tagtree    = array();
-		$this->xmldata    = array();
-		$this->out        = array();
-		$this->intag      = false;
-		$this->exists     = false;
-		$this->skiptag    = '';
-		$this->xmltag     = '';
-		$this->xmltatts   = '';
+        $this->subfields  = array();
+        $this->treefields = array();
+        $this->tagtree    = array();
+        $this->xmldata    = array();
+        $this->out        = array();
+        $this->intag      = false;
+        $this->exists     = false;
+        $this->skiptag    = '';
+        $this->xmltag     = '';
+        $this->xmltatts   = '';
 
-		// Copy any tree- and sub-fields out of the list
-		foreach ($this->fields as $key => $fld) {
-			$sf = do_list($fld, $this->tdelim);
-			$tf = do_list($sf[0], '->');
-			$numSFs = count($sf);
-			$numTFs = count($tf);
+        // Copy any tree- and sub-fields out of the list
+        foreach ($this->fields as $key => $fld) {
+            $sf = do_list($fld, $this->tdelim);
+            $tf = do_list($sf[0], '->');
+            $numSFs = count($sf);
+            $numTFs = count($tf);
 
-			// First subfield needs tree portion removing, and
-			// last treefield needs removing ('cos it's the first subfield)
-			$sf[0] = $tf[$numTFs-1];
-			unset($tf[$numTFs-1]);
-			$numTFs--;
+            // First subfield needs tree portion removing, and
+            // last treefield needs removing ('cos it's the first subfield)
+            $sf[0] = $tf[$numTFs-1];
+            unset($tf[$numTFs-1]);
+            $numTFs--;
 
-			// Build the tree view.
-			// The tree holds the path from the sub-node back to the top, so when
-			// a leaf is encountered its path can be looked up as $treefields[$leaf]
-			// and be path verified to see if it matches a wanted leaf
-			foreach ($sf as $sub) {
-				$this->treefields[$sub] = $tf;
-			}
+            // Build the tree view.
+            // The tree holds the path from the sub-node back to the top, so when
+            // a leaf is encountered its path can be looked up as $treefields[$leaf]
+            // and be path verified to see if it matches a wanted leaf
+            foreach ($sf as $sub) {
+                $this->treefields[$sub] = $tf;
+            }
 
-			// The subfields are built as a pair of arrays -- one flat, one indexed by parent field -- for searching later
-			$this->byfields[$sf[0]] = array_slice($sf, 1);
-			$this->subfields = array_merge($this->subfields, $sf);
+            // The subfields are built as a pair of arrays -- one flat, one indexed by parent field -- for searching later
+            $this->byfields[$sf[0]] = array_slice($sf, 1);
+            $this->subfields = array_merge($this->subfields, $sf);
 
-			// Make sure the field only holds the zeroth entry
-			$this->fields[$key] = ($tf) ? $tf[0] : $sf[0];
+            // Make sure the field only holds the zeroth entry
+            $this->fields[$key] = ($tf) ? $tf[0] : $sf[0];
 
-			// and make sure the root node of any tree is not added
-			// as checkable to the tree itself
-			$this->treefields[$this->fields[$key]] = array();
-		}
-		if ($this->debug > 1) {
-			trace_add ('[smd_xml fields: ' . print_r($this->fields, true) . ']');
-			trace_add ('[smd_xml subfields: ' . print_r($this->subfields, true) . ']');
-			trace_add ('[smd_xml indexed subfields: ' . print_r($this->byfields, true) . ']');
-			trace_add ('[smd_xml tree fields: ' . print_r($this->treefields, true) . ']');
-		}
-		$this->parse();
-	}
+            // and make sure the root node of any tree is not added
+            // as checkable to the tree itself
+            $this->treefields[$this->fields[$key]] = array();
+        }
+        if ($this->debug > 1) {
+            trace_add ('[smd_xml fields: ' . print_r($this->fields, true) . ']');
+            trace_add ('[smd_xml subfields: ' . print_r($this->subfields, true) . ']');
+            trace_add ('[smd_xml indexed subfields: ' . print_r($this->byfields, true) . ']');
+            trace_add ('[smd_xml tree fields: ' . print_r($this->treefields, true) . ']');
+        }
+        $this->parse();
+    }
 
-	public function getResults()
-	{
-		if ($this->out) {
-			return $this->out;
-		} else {
-			return '';
-		}
-	}
+    public function getResults()
+    {
+        if ($this->out) {
+            return $this->out;
+        } else {
+            return '';
+        }
+    }
 
-	protected function parse()
-	{
-		$xmlparser = xml_parser_create();
-		xml_set_object($xmlparser, $this);
-		xml_parser_set_option($xmlparser, XML_OPTION_CASE_FOLDING, $this->casefold);
-		xml_parser_set_option($xmlparser, XML_OPTION_TARGET_ENCODING, $this->outenc);
-		xml_set_default_handler($xmlparser, "smd_xml_default");
-		xml_set_element_handler($xmlparser, "smd_xml_start_tag", "smd_xml_end_tag");
-		xml_set_character_data_handler($xmlparser, "smd_xml_tag_contents");
-		xml_parse($xmlparser, $this->data);
-		xml_parser_free($xmlparser);
-	}
+    protected function parse()
+    {
+        $xmlparser = xml_parser_create();
+        xml_set_object($xmlparser, $this);
+        xml_parser_set_option($xmlparser, XML_OPTION_CASE_FOLDING, $this->casefold);
+        xml_parser_set_option($xmlparser, XML_OPTION_TARGET_ENCODING, $this->outenc);
+        xml_set_default_handler($xmlparser, "smd_xml_default");
+        xml_set_element_handler($xmlparser, "smd_xml_start_tag", "smd_xml_end_tag");
+        xml_set_character_data_handler($xmlparser, "smd_xml_tag_contents");
+        xml_parse($xmlparser, $this->data);
+        xml_parser_free($xmlparser);
+    }
 
-	// Do nothing with default (non-XML) data. Just report it in debug mode
-	// TODO: allow some callback / Form to handle this type of data
-	protected function smd_xml_default($parser, $data)
-	{
-		if ($this->debug > 1) {
-			trace_add ('[smd_xml default data: ' . print_r($data, true) . ']');
-		}
-	}
+    // Do nothing with default (non-XML) data. Just report it in debug mode
+    // TODO: allow some callback / Form to handle this type of data
+    protected function smd_xml_default($parser, $data)
+    {
+        if ($this->debug > 1) {
+            trace_add ('[smd_xml default data: ' . print_r($data, true) . ']');
+        }
+    }
 
-	// Start of XML tag
-	protected function smd_xml_start_tag($parser, $name, $attribs)
-	{
-		array_push($this->tagtree, $name);
+    // Start of XML tag
+    protected function smd_xml_start_tag($parser, $name, $attribs)
+    {
+        array_push($this->tagtree, $name);
 
-		$pgval = $this->rowinfo['pgoffset'] - 1;
-		$lim = $this->rowinfo['limit'] > 0;
+        $pgval = $this->rowinfo['pgoffset'] - 1;
+        $lim = $this->rowinfo['limit'] > 0;
 
-		// Is this record to be processed? i.e. is it within this page's limit/offset?
-		$this->show_record = $lim ? (($this->rowinfo['page_rowcnt'] > $pgval) && ($this->rowinfo['page_rowcnt'] <= $pgval + $this->rowinfo['pagerows'])) : $this->rowinfo['page_rowcnt'] > $pgval;
+        // Is this record to be processed? i.e. is it within this page's limit/offset?
+        $this->show_record = $lim ? (($this->rowinfo['page_rowcnt'] > $pgval) && ($this->rowinfo['page_rowcnt'] <= $pgval + $this->rowinfo['pagerows'])) : $this->rowinfo['page_rowcnt'] > $pgval;
 
-		// Check the tree if necessary
-		$tree_ok = true;
-		if (array_key_exists($name, $this->treefields) && !empty($this->treefields[$name])) {
-			$treeSize = count($this->treefields[$name]);
-			$treeOffset = '-' .$treeSize - 1;
-			// If there's no difference, the tree is ok
-			$tree_ok = ( array_diff ($this->treefields[$name], array_slice($this->tagtree, $treeOffset, $treeSize) ) ) ? false : true;
-			if ($this->debug > 2) {
-				trace_add ('[smd_xml tree check on field: ' . $name . ']');
-				trace_add ('[smd_xml tree compare: ' . print_r($this->treefields[$name], true) . ']');
-				trace_add ('[smd_xml tree with: ' . print_r($this->tagtree, true) . ']');
-				trace_add ('[smd_xml tree result: ' . ($tree_ok ? 'YES' : 'NO') . ']');
-			}
-		}
+        // Check the tree if necessary
+        $tree_ok = true;
+        if (array_key_exists($name, $this->treefields) && !empty($this->treefields[$name])) {
+            $treeSize = count($this->treefields[$name]);
+            $treeOffset = '-' .$treeSize - 1;
+            // If there's no difference, the tree is ok
+            $tree_ok = ( array_diff ($this->treefields[$name], array_slice($this->tagtree, $treeOffset, $treeSize) ) ) ? false : true;
+            if ($this->debug > 2) {
+                trace_add ('[smd_xml tree check on field: ' . $name . ']');
+                trace_add ('[smd_xml tree compare: ' . print_r($this->treefields[$name], true) . ']');
+                trace_add ('[smd_xml tree with: ' . print_r($this->tagtree, true) . ']');
+                trace_add ('[smd_xml tree result: ' . ($tree_ok ? 'YES' : 'NO') . ']');
+            }
+        }
 
-		// Start of a wanted record: flag this situation and grab any attributes
-		if ( ($name == $this->rec) && $this->show_record ) {
-			$this->intag = true;
-			$this->xmlatts[$name] = $attribs;
-			if ($this->load_atts == 'start') {
-				$this->smd_xml_store_attribs($name);
-			}
-		}
+        // Start of a wanted record: flag this situation and grab any attributes
+        if ( ($name == $this->rec) && $this->show_record ) {
+            $this->intag = true;
+            $this->xmlatts[$name] = $attribs;
+            if ($this->load_atts == 'start') {
+                $this->smd_xml_store_attribs($name);
+            }
+        }
 
-		// We're inside a wanted record
-		if ($this->intag && $tree_ok) {
-			if (in_array($name, $this->skip)) {
-				$this->xmltag = '';
-				$this->xmlatts[$name] = array();
-				$this->skiptag = $name;
-			} else {
-				$this->xmltag = $name;
-				$this->xmlatts[$name] = $attribs;
-				if ( ($this->load_atts == 'start') && ($name != $this->rec) ) {
-					$this->smd_xml_store_attribs($name);
-				}
+        // We're inside a wanted record
+        if ($this->intag && $tree_ok) {
+            if (in_array($name, $this->skip)) {
+                $this->xmltag = '';
+                $this->xmlatts[$name] = array();
+                $this->skiptag = $name;
+            } else {
+                $this->xmltag = $name;
+                $this->xmlatts[$name] = $attribs;
+                if ( ($this->load_atts == 'start') && ($name != $this->rec) ) {
+                    $this->smd_xml_store_attribs($name);
+                }
 
-				// Process any ontagstart
-				foreach ($this->watchStart as $frm => $watchlist) {
-					if (in_array($name, $watchlist)) {
-						$op = trim(parse(strtr($this->watchForm[$frm], $this->xmldata)));
-						if ($op != '') {
-							$this->out[] = $op;
-						}
-					}
-				}
-				if ($this->concat && isset($this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}'])) {
-					$this->exists = true;
-				} else {
-					$this->exists = false;
-				}
-			}
-		}
-		$this->indata = false;
-	}
+                // Process any ontagstart
+                foreach ($this->watchStart as $frm => $watchlist) {
+                    if (in_array($name, $watchlist)) {
+                        $op = trim(parse(strtr($this->watchForm[$frm], $this->xmldata)));
+                        if ($op != '') {
+                            $this->out[] = $op;
+                        }
+                    }
+                }
+                if ($this->concat && isset($this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}'])) {
+                    $this->exists = true;
+                } else {
+                    $this->exists = false;
+                }
+            }
+        }
+        $this->indata = false;
+    }
 
-	// End of XML tag
-	protected function smd_xml_end_tag($parser, $name)
-	{
-		// End of a regular/attribute-only/container/self-closing tag
-		if ( ($name != $this->rec) && ($name != $this->skiptag) && $this->intag && in_array($name, array_merge($this->fields, $this->subfields)) ) {
-			$this->xmltag = $name;
-			if ($this->load_atts == 'end') {
-				$this->smd_xml_store_attribs($name);
-			}
+    // End of XML tag
+    protected function smd_xml_end_tag($parser, $name)
+    {
+        // End of a regular/attribute-only/container/self-closing tag
+        if ( ($name != $this->rec) && ($name != $this->skiptag) && $this->intag && in_array($name, array_merge($this->fields, $this->subfields)) ) {
+            $this->xmltag = $name;
+            if ($this->load_atts == 'end') {
+                $this->smd_xml_store_attribs($name);
+            }
 
-			// Process any ontagend
-			foreach ($this->watchEnd as $frm => $watchlist) {
-				if (in_array($name, $watchlist)) {
-					$op = trim(parse(strtr($this->watchForm[$frm], $this->xmldata)));
-					if ($op != '') {
-						$this->out[] = $op;
-					}
-				}
-			}
-		}
+            // Process any ontagend
+            foreach ($this->watchEnd as $frm => $watchlist) {
+                if (in_array($name, $watchlist)) {
+                    $op = trim(parse(strtr($this->watchForm[$frm], $this->xmldata)));
+                    if ($op != '') {
+                        $this->out[] = $op;
+                    }
+                }
+            }
+        }
 
-		// End of the record
-		if ($name == $this->rec && $name != $this->skiptag) {
-			$this->intag = false;
-			if ($this->load_atts == 'end') {
-				$this->smd_xml_store_attribs($name);
-			}
+        // End of the record
+        if ($name == $this->rec && $name != $this->skiptag) {
+            $this->intag = false;
+            if ($this->load_atts == 'end') {
+                $this->smd_xml_store_attribs($name);
+            }
 
-			$matched = true;
-			if (array_key_exists($this->xmltag, $this->match)) {
-				$matched = preg_match($this->match[$this->xmltag], $this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}']);
-			}
-			if ($matched) {
-				$lim = ($this->rowinfo['limit'] > 0) ? true : false;
+            $matched = true;
+            if (array_key_exists($this->xmltag, $this->match)) {
+                $matched = preg_match($this->match[$this->xmltag], $this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}']);
+            }
+            if ($matched) {
+                $lim = ($this->rowinfo['limit'] > 0) ? true : false;
 
-				// Append row counter information
-				$this->xmldata['{'.$this->page_prefix.'totalrecs}'] = $lim ? $this->rowinfo['total'] : $this->rowinfo['numrecs'] - $this->rowinfo['pgoffset'];
-				$this->xmldata['{'.$this->page_prefix.'pagerecs}']  = $lim ? $this->rowinfo['pagerows'] : $this->xmldata['{'.$this->page_prefix.'totalrecs}'];
-				$this->xmldata['{'.$this->page_prefix.'pages}']     = $lim ? $this->rowinfo['numPages'] : 1;
-				$this->xmldata['{'.$this->page_prefix.'thispage}']  = $lim ? $this->rowinfo['pg'] : 1;
-				$this->xmldata['{'.$this->page_prefix.'thisindex}'] = $this->rowinfo['page_rowcnt'] - $this->rowinfo['offset'];
-				$this->xmldata['{'.$this->page_prefix.'thisrec}']   = $this->rowinfo['page_rowcnt'] - $this->rowinfo['offset'] + 1;
-				$this->xmldata['{'.$this->page_prefix.'runindex}']  = $this->rowinfo['running_rowcnt'];
-				$this->xmldata['{'.$this->page_prefix.'runrec}']    = $this->rowinfo['running_rowcnt'] + 1;
+                // Append row counter information
+                $this->xmldata['{'.$this->page_prefix.'totalrecs}'] = $lim ? $this->rowinfo['total'] : $this->rowinfo['numrecs'] - $this->rowinfo['pgoffset'];
+                $this->xmldata['{'.$this->page_prefix.'pagerecs}']  = $lim ? $this->rowinfo['pagerows'] : $this->xmldata['{'.$this->page_prefix.'totalrecs}'];
+                $this->xmldata['{'.$this->page_prefix.'pages}']     = $lim ? $this->rowinfo['numPages'] : 1;
+                $this->xmldata['{'.$this->page_prefix.'thispage}']  = $lim ? $this->rowinfo['pg'] : 1;
+                $this->xmldata['{'.$this->page_prefix.'thisindex}'] = $this->rowinfo['page_rowcnt'] - $this->rowinfo['offset'];
+                $this->xmldata['{'.$this->page_prefix.'thisrec}']   = $this->rowinfo['page_rowcnt'] - $this->rowinfo['offset'] + 1;
+                $this->xmldata['{'.$this->page_prefix.'runindex}']  = $this->rowinfo['running_rowcnt'];
+                $this->xmldata['{'.$this->page_prefix.'runrec}']    = $this->rowinfo['running_rowcnt'] + 1;
 
-				$sfields = array_unique(array_merge($this->fields, $this->subfields));
+                $sfields = array_unique(array_merge($this->fields, $this->subfields));
 
-				// Set any tag contents to a default value, if specified
-				if ($this->defaults || $this->set_empty) {
-					foreach ($sfields as $field) {
-						if (!isset($this->xmldata['{'.$this->tag_prefix.$field.'}'])) {
-							if (array_key_exists($field, $this->defaults)) {
-								$this->xmldata['{'.$this->tag_prefix.$field.'}'] = $this->defaults[$field];
-							} else if ($this->set_empty) {
-								$this->xmldata['{'.$this->tag_prefix.$field.'}'] = '';
-							}
-						}
-					}
-				}
+                // Set any tag contents to a default value, if specified
+                if ($this->defaults || $this->set_empty) {
+                    foreach ($sfields as $field) {
+                        if (!isset($this->xmldata['{'.$this->tag_prefix.$field.'}'])) {
+                            if (array_key_exists($field, $this->defaults)) {
+                                $this->xmldata['{'.$this->tag_prefix.$field.'}'] = $this->defaults[$field];
+                            } else if ($this->set_empty) {
+                                $this->xmldata['{'.$this->tag_prefix.$field.'}'] = '';
+                            }
+                        }
+                    }
+                }
 
-				// Reformat any fields, if specified
-				if ($this->formats) {
-					foreach ($sfields as $field) {
-						if (isset($this->xmldata['{'.$this->tag_prefix.$field.'}']) && array_key_exists($field, $this->formats['type'])) {
-							switch ($this->formats['type'][$field]) {
-								case 'date':
-									$nd = (is_numeric($this->xmldata['{'.$this->tag_prefix.$field.'}'])) ? $this->xmldata['{'.$this->tag_prefix.$field.'}'] : strtotime($this->xmldata['{'.$this->tag_prefix.$field.'}']);
-									if ($nd !== false) {
-										$this->xmldata['{'.$this->tag_prefix.$field.'}'] = strftime($this->formats['data'][$field][0], $nd);
-									}
-									break;
-								case 'link':
-									// From http://codesnippets.joyent.com/posts/show/2104
-									$pat = "@\b(https?://)?(([0-9a-zA-Z_!~*'().&=+$%-]+:)?[0-9a-zA-Z_!~*'().&=+$%-]+\@)?(([0-9]{1,3}\.){3}[0-9]{1,3}|([0-9a-zA-Z_!~*'()-]+\.)*([0-9a-zA-Z][0-9a-zA-Z-]{0,61})?[0-9a-zA-Z]\.[a-zA-Z]{2,6})(:[0-9]{1,4})?((/[0-9a-zA-Z_!~*'().;?:\@&=+$,%#-]+)*/?)@";
-									$this->xmldata['{'.$this->tag_prefix.$field.'}'] = preg_replace($pat, '<a href="$0">$0</a>', $this->xmldata['{'.$this->tag_prefix.$field.'}']);
-									break;
-								case 'escape':
-									$flags = ENT_XML1;
-									if (isset($this->formats['data'][$field][0])) {
-										switch ($this->formats['data'][$field][0]) {
-											case 'no_quotes':
-												$flags |= ENT_NOQUOTES;
-											break;
-											case 'all_quotes':
-												$flags |= ENT_QUOTES;
-											break;
-											case 'double_quotes':
-											default:
-												$flags |= ENT_COMPAT;
-											break;
-										}
-									}
-									$this->xmldata['{'.$this->tag_prefix.$field.'}'] = htmlspecialchars($this->xmldata['{'.$this->tag_prefix.$field.'}'], $flags);
-									break;
-								case 'fordb':
-									$this->xmldata['{'.$this->tag_prefix.$field.'}'] = doSlash($this->xmldata['{'.$this->tag_prefix.$field.'}']);
-									break;
-								case 'sanitize':
-									if ($this->formats['data'][$field][0] == "url") {
-										$this->xmldata['{'.$this->tag_prefix.$field.'}'] = sanitizeForUrl($this->xmldata['{'.$this->tag_prefix.$field.'}']);
-									} else if ($this->formats['data'][$field][0] == "file") {
-										$this->xmldata['{'.$this->tag_prefix.$field.'}'] = sanitizeForFile($this->xmldata['{'.$this->tag_prefix.$field.'}']);
-									} else if ($this->formats['data'][$field][0] == "url_title") {
-										$this->xmldata['{'.$this->tag_prefix.$field.'}'] = stripSpace($this->xmldata['{'.$this->tag_prefix.$field.'}'], 1);
-									}
-									break;
-								case 'case':
-									for ($idx = 0; $idx < count($this->formats['data'][$field]); $idx++) {
-										if ($this->formats['data'][$field][$idx] == "upper") {
-											$this->xmldata['{'.$this->tag_prefix.$field.'}'] = strtoupper($this->xmldata['{'.$this->tag_prefix.$field.'}']);
-										} else if ($this->formats['data'][$field][$idx] == "lower") {
-											$this->xmldata['{'.$this->tag_prefix.$field.'}'] = strtolower($this->xmldata['{'.$this->tag_prefix.$field.'}']);
-										} else if ($this->formats['data'][$field][$idx] == "ucfirst") {
-											$this->xmldata['{'.$this->tag_prefix.$field.'}'] = ucfirst($this->xmldata['{'.$this->tag_prefix.$field.'}']);
-										} else if ($this->formats['data'][$field][$idx] == "ucwords") {
-											$this->xmldata['{'.$this->tag_prefix.$field.'}'] = ucwords($this->xmldata['{'.$this->tag_prefix.$field.'}']);
-										}
-									}
-									break;
-							}
-						}
-					}
-				}
+                // Reformat any fields, if specified
+                if ($this->formats) {
+                    foreach ($sfields as $field) {
+                        if (isset($this->xmldata['{'.$this->tag_prefix.$field.'}']) && array_key_exists($field, $this->formats['type'])) {
+                            switch ($this->formats['type'][$field]) {
+                                case 'date':
+                                    $nd = (is_numeric($this->xmldata['{'.$this->tag_prefix.$field.'}'])) ? $this->xmldata['{'.$this->tag_prefix.$field.'}'] : strtotime($this->xmldata['{'.$this->tag_prefix.$field.'}']);
+                                    if ($nd !== false) {
+                                        $this->xmldata['{'.$this->tag_prefix.$field.'}'] = strftime($this->formats['data'][$field][0], $nd);
+                                    }
+                                    break;
+                                case 'link':
+                                    // From http://codesnippets.joyent.com/posts/show/2104
+                                    $pat = "@\b(https?://)?(([0-9a-zA-Z_!~*'().&=+$%-]+:)?[0-9a-zA-Z_!~*'().&=+$%-]+\@)?(([0-9]{1,3}\.){3}[0-9]{1,3}|([0-9a-zA-Z_!~*'()-]+\.)*([0-9a-zA-Z][0-9a-zA-Z-]{0,61})?[0-9a-zA-Z]\.[a-zA-Z]{2,6})(:[0-9]{1,4})?((/[0-9a-zA-Z_!~*'().;?:\@&=+$,%#-]+)*/?)@";
+                                    $this->xmldata['{'.$this->tag_prefix.$field.'}'] = preg_replace($pat, '<a href="$0">$0</a>', $this->xmldata['{'.$this->tag_prefix.$field.'}']);
+                                    break;
+                                case 'escape':
+                                    $flags = ENT_XML1;
+                                    if (isset($this->formats['data'][$field][0])) {
+                                        switch ($this->formats['data'][$field][0]) {
+                                            case 'no_quotes':
+                                                $flags |= ENT_NOQUOTES;
+                                            break;
+                                            case 'all_quotes':
+                                                $flags |= ENT_QUOTES;
+                                            break;
+                                            case 'double_quotes':
+                                            default:
+                                                $flags |= ENT_COMPAT;
+                                            break;
+                                        }
+                                    }
+                                    $this->xmldata['{'.$this->tag_prefix.$field.'}'] = htmlspecialchars($this->xmldata['{'.$this->tag_prefix.$field.'}'], $flags);
+                                    break;
+                                case 'fordb':
+                                    $this->xmldata['{'.$this->tag_prefix.$field.'}'] = doSlash($this->xmldata['{'.$this->tag_prefix.$field.'}']);
+                                    break;
+                                case 'sanitize':
+                                    if ($this->formats['data'][$field][0] == "url") {
+                                        $this->xmldata['{'.$this->tag_prefix.$field.'}'] = sanitizeForUrl($this->xmldata['{'.$this->tag_prefix.$field.'}']);
+                                    } else if ($this->formats['data'][$field][0] == "file") {
+                                        $this->xmldata['{'.$this->tag_prefix.$field.'}'] = sanitizeForFile($this->xmldata['{'.$this->tag_prefix.$field.'}']);
+                                    } else if ($this->formats['data'][$field][0] == "url_title") {
+                                        $this->xmldata['{'.$this->tag_prefix.$field.'}'] = stripSpace($this->xmldata['{'.$this->tag_prefix.$field.'}'], 1);
+                                    }
+                                    break;
+                                case 'case':
+                                    for ($idx = 0; $idx < count($this->formats['data'][$field]); $idx++) {
+                                        if ($this->formats['data'][$field][$idx] == "upper") {
+                                            $this->xmldata['{'.$this->tag_prefix.$field.'}'] = strtoupper($this->xmldata['{'.$this->tag_prefix.$field.'}']);
+                                        } else if ($this->formats['data'][$field][$idx] == "lower") {
+                                            $this->xmldata['{'.$this->tag_prefix.$field.'}'] = strtolower($this->xmldata['{'.$this->tag_prefix.$field.'}']);
+                                        } else if ($this->formats['data'][$field][$idx] == "ucfirst") {
+                                            $this->xmldata['{'.$this->tag_prefix.$field.'}'] = ucfirst($this->xmldata['{'.$this->tag_prefix.$field.'}']);
+                                        } else if ($this->formats['data'][$field][$idx] == "ucwords") {
+                                            $this->xmldata['{'.$this->tag_prefix.$field.'}'] = ucwords($this->xmldata['{'.$this->tag_prefix.$field.'}']);
+                                        }
+                                    }
+                                    break;
+                            }
+                        }
+                    }
+                }
 
-				if ($this->debug > 0 && $this->show_record) {
-					trace_add ('[smd_xml replacements for record '.($this->rowinfo['running_rowcnt'] + 1).':' . print_r($this->xmldata, true) . ']');
-				}
-			}
+                if ($this->debug > 0 && $this->show_record) {
+                    trace_add ('[smd_xml replacements for record '.($this->rowinfo['running_rowcnt'] + 1).':' . print_r($this->xmldata, true) . ']');
+                }
+            }
 
-			if ($this->show_record && $matched) {
-				$this->out[] = parse(strtr($this->thing, $this->xmldata));
-			}
+            if ($this->show_record && $matched) {
+                $this->out[] = parse(strtr($this->thing, $this->xmldata));
+            }
 
-			// Prepare for next record iteration
-			$this->rowinfo['running_rowcnt'] = $this->rowinfo['running_rowcnt']+1;
-			$this->rowinfo['page_rowcnt'] = $this->rowinfo['page_rowcnt']+1;
-			$this->xmldata = array();
-			$this->indata = false;
-		}
-		if ($name == $this->skiptag) {
-			$this->skiptag = '';
-		}
-		array_pop($this->tagtree);
-	}
+            // Prepare for next record iteration
+            $this->rowinfo['running_rowcnt'] = $this->rowinfo['running_rowcnt']+1;
+            $this->rowinfo['page_rowcnt'] = $this->rowinfo['page_rowcnt']+1;
+            $this->xmldata = array();
+            $this->indata = false;
+        }
+        if ($name == $this->skiptag) {
+            $this->skiptag = '';
+        }
+        array_pop($this->tagtree);
+    }
 
-	// Node data/text that is not an XML tag
-	protected function smd_xml_tag_contents($parser, $data)
-	{
-		if ($this->intag && !$this->skiptag) {
-			if ($this->debug > 1) {
-				trace_add ('[smd_xml tag:' . $this->xmltag . ']');
-				trace_add ('[smd_xml tag data:' . print_r($data, true) . ']');
-			}
-			if (in_array($this->xmltag, array_merge($this->fields, $this->subfields))) {
-				if ($this->indata) {
-					// Annoying logic, but necessary since the parser may not split at a tag
-					// boundary so we need to know if we're already in some data block and append.
-					// If not we can safely start a new xmldata node for this tag
-					if ($this->exists) {
-						$this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}'] .= $this->cdelim.$data;
-					} else {
-						$this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}'] .= $data;
-					}
-				} else {
-					if ($this->exists) {
-						$this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}'] .= $this->cdelim.$data;
-					} else {
-						$this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}'] = $data;
-					}
-				}
+    // Node data/text that is not an XML tag
+    protected function smd_xml_tag_contents($parser, $data)
+    {
+        if ($this->intag && !$this->skiptag) {
+            if ($this->debug > 1) {
+                trace_add ('[smd_xml tag:' . $this->xmltag . ']');
+                trace_add ('[smd_xml tag data:' . print_r($data, true) . ']');
+            }
+            if (in_array($this->xmltag, array_merge($this->fields, $this->subfields))) {
+                if ($this->indata) {
+                    // Annoying logic, but necessary since the parser may not split at a tag
+                    // boundary so we need to know if we're already in some data block and append.
+                    // If not we can safely start a new xmldata node for this tag
+                    if ($this->exists) {
+                        $this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}'] .= $this->cdelim.$data;
+                    } else {
+                        $this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}'] .= $data;
+                    }
+                } else {
+                    if ($this->exists) {
+                        $this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}'] .= $this->cdelim.$data;
+                    } else {
+                        $this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}'] = $data;
+                    }
+                }
 
-				// Copy the tag to any duplicate (alias) nodes
-				if (array_key_exists($this->xmltag, $this->byfields)) {
-					foreach($this->byfields[$this->xmltag] as $copyfield) {
-						if (!isset($this->xmldata['{'.$this->tag_prefix.$copyfield.'}'])) {
-							$this->xmldata['{'.$this->tag_prefix.$copyfield.'}'] = $this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}'];
-						}
-					}
-				}
-				$this->indata = true;
-			}
-		}
-	}
+                // Copy the tag to any duplicate (alias) nodes
+                if (array_key_exists($this->xmltag, $this->byfields)) {
+                    foreach($this->byfields[$this->xmltag] as $copyfield) {
+                        if (!isset($this->xmldata['{'.$this->tag_prefix.$copyfield.'}'])) {
+                            $this->xmldata['{'.$this->tag_prefix.$copyfield.'}'] = $this->xmldata['{'.$this->tag_prefix.$this->xmltag.'}'];
+                        }
+                    }
+                }
+                $this->indata = true;
+            }
+        }
+    }
 
-	// Create any attribute nodes
-	protected function smd_xml_store_attribs($name)
-	{
-		if ($this->xmlatts[$name]) {
-			foreach ($this->xmlatts[$name] as $xkey => $xval) {
-				// Append if attribute previously encountered
-				if ($this->concat && isset($this->xmldata['{'.$this->tag_prefix.$name.$this->tdelim.$xkey.'}'])) {
-					$this->xmldata['{'.$this->tag_prefix.$name.$this->tdelim.$xkey.'}'] .= $this->cdelim.$xval;
-				} else {
-					$this->xmldata['{'.$this->tag_prefix.$name.$this->tdelim.$xkey.'}'] = $xval;
-				}
-			}
-		}
-	}
+    // Create any attribute nodes
+    protected function smd_xml_store_attribs($name)
+    {
+        if ($this->xmlatts[$name]) {
+            foreach ($this->xmlatts[$name] as $xkey => $xval) {
+                // Append if attribute previously encountered
+                if ($this->concat && isset($this->xmldata['{'.$this->tag_prefix.$name.$this->tdelim.$xkey.'}'])) {
+                    $this->xmldata['{'.$this->tag_prefix.$name.$this->tdelim.$xkey.'}'] .= $this->cdelim.$xval;
+                } else {
+                    $this->xmldata['{'.$this->tag_prefix.$name.$this->tdelim.$xkey.'}'] = $xval;
+                }
+            }
+        }
+    }
 }
 
 
