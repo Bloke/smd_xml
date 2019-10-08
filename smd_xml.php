@@ -85,6 +85,11 @@ if (!defined('txpinterface'))
  * @link   http://stefdawson.com/
  */
 
+if (class_exists('\Textpattern\Tag\Registry')) {
+    Txp::get('\Textpattern\Tag\Registry')
+        ->register('smd_xml');
+}
+
 // TODO:
 // Add headers attribute, allowing User-Agent etc to be added. Will have to be a fixed list, but if it's made into an array and iterated, then it leaves the door open for expansion.
 //      --> JSON support?
@@ -797,9 +802,9 @@ function smd_xml_to_array($curr_node)
 // Build an XML data set from associative array
 class smd_xml_build_data
 {
-	private $xml, $last_idx, $recWrap;
+	protected $xml, $last_idx, $recWrap;
 
-	function smd_xml_build_data ($data, $startElement, $recWrap, $xml_version = '1.0', $xml_encoding = 'UTF-8')
+	public function __construct($data, $startElement, $recWrap, $xml_version = '1.0', $xml_encoding = 'UTF-8')
 	{
 		$startElement = ($startElement) ? $startElement : 'fx_request';
 		if (!is_array($data)) {
@@ -820,13 +825,13 @@ class smd_xml_build_data
 	}
 
 	// Standard getter
-	function getData()
+	public function getData()
 	{
 		return $this->xml->outputMemory(true);
 	}
 
 	// Recurse array elements and build XML tag tree
-	function write(XMLWriter $xml, $data, $parent)
+	public function write(XMLWriter $xml, $data, $parent)
 	{
 		foreach ($data as $key => $value) {
 			// Nodes that aren't valid attributes get given an array index
@@ -847,24 +852,24 @@ class smd_xml_build_data
 
 // Dirty XML work done here
 class smd_xml_parser {
-	private $data, $rec;
-	private $fields, $subfields, $treefields;
-	private $skip, $match, $defaults, $set_empty;
-	private $casefold, $outenc;
-	private $load_atts, $watchStart, $watchEnd, $watchForm;
-	private $formats, $tag_prefix, $page_prefix;
+	protected $data, $rec;
+	protected $fields, $subfields, $treefields;
+	protected $skip, $match, $defaults, $set_empty;
+	protected $casefold, $outenc;
+	protected $load_atts, $watchStart, $watchEnd, $watchForm;
+	protected $formats, $tag_prefix, $page_prefix;
 
-	private $intag, $indata;
-	private $skiptag, $xmltag, $xmlatts, $xmldata;
-	private $thing, $out;
-	private $delim, $concat, $tdelim, $cdelim;
-	private $rowinfo, $show_record;
-	private $debug;
+	protected $intag, $indata;
+	protected $skiptag, $xmltag, $xmlatts, $xmldata;
+	protected $thing, $out;
+	protected $delim, $concat, $tdelim, $cdelim;
+	protected $rowinfo, $show_record;
+	protected $debug;
 
 	/**
 	* constructor
 	*/
-	function __construct($atts)
+	public function __construct($atts)
 	{
 		$this->data        = $atts['src'];
 		$this->delim       = $atts['delim'];
@@ -951,7 +956,7 @@ class smd_xml_parser {
 		}
 	}
 
-	private function parse()
+	protected function parse()
 	{
 		$xmlparser = xml_parser_create();
 		xml_set_object($xmlparser, $this);
@@ -966,7 +971,7 @@ class smd_xml_parser {
 
 	// Do nothing with default (non-XML) data. Just report it in debug mode
 	// TODO: allow some callback / Form to handle this type of data
-	private function smd_xml_default($parser, $data)
+	protected function smd_xml_default($parser, $data)
 	{
 		if ($this->debug > 1) {
 			trace_add ('[smd_xml default data: ' . print_r($data, true) . ']');
@@ -974,7 +979,7 @@ class smd_xml_parser {
 	}
 
 	// Start of XML tag
-	private function smd_xml_start_tag($parser, $name, $attribs)
+	protected function smd_xml_start_tag($parser, $name, $attribs)
 	{
 		array_push($this->tagtree, $name);
 
@@ -1041,7 +1046,7 @@ class smd_xml_parser {
 	}
 
 	// End of XML tag
-	private function smd_xml_end_tag($parser, $name)
+	protected function smd_xml_end_tag($parser, $name)
 	{
 		// End of a regular/attribute-only/container/self-closing tag
 		if ( ($name != $this->rec) && ($name != $this->skiptag) && $this->intag && in_array($name, array_merge($this->fields, $this->subfields)) ) {
@@ -1186,7 +1191,7 @@ class smd_xml_parser {
 	}
 
 	// Node data/text that is not an XML tag
-	private function smd_xml_tag_contents($parser, $data)
+	protected function smd_xml_tag_contents($parser, $data)
 	{
 		if ($this->intag && !$this->skiptag) {
 			if ($this->debug > 1) {
@@ -1225,7 +1230,7 @@ class smd_xml_parser {
 	}
 
 	// Create any attribute nodes
-	private function smd_xml_store_attribs($name)
+	protected function smd_xml_store_attribs($name)
 	{
 		if ($this->xmlatts[$name]) {
 			foreach ($this->xmlatts[$name] as $xkey => $xval) {
