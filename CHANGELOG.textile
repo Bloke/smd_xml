@@ -1,0 +1,50 @@
+h1. Changelog
+
+h2. 0.4.2 - 2019-10-08
+
+* Updated for PHP 5+ and Textpattern 4.6+.
+
+h2. 0.4.1 - 2014-10-06
+
+* Add support for customisable headers (thank johnno).
+
+h2. 0.4.0 - 2012-04-03
+
+* Improved feed support and tag detection for more varied / complicated feeds.
+* Added XML-over-FTP support (thanks aslsw66).
+* Added SOAP transport facility, @transport_opts@ and @transport_config@ attributes.
+* Added XSL and regex transform support.
+* Allowed @sub->field@ support and added @match@, @ontagstart@, @ontagend@ and @load_atts@ for finer control over field extraction.
+* Added @datawrap@, @var_prefix@ and @timeout@ attributes.
+* Added record attribute support (thanks Mats).
+* Fixed mangled date field bug.
+* Fixed attributes-in-record-entry limit bug and undesired ontag output (both thanks tye).
+* Changed @format@'s @escape@ attribute to @fordb@ (@escape@ is now for @htmlspecialchars()@).
+* Added @kill_spaces@ so inter-tag whitespace removal is optional (but highly recommended).
+* Added @tag_delim@ (thanks MattD).
+
+h2. 0.3.0 - 2010-01-17
+
+* Enabled URL params to be passed in the @data@ attribute.
+* Added @format@.
+* Deprecated @linkify@.
+* @param_delim@ default is now pipe.
+
+h2. 0.2.2 - 2010-01-13
+
+* Added @line_length@ (thanks nardo).
+
+h2. 0.2.1 - 2010-01-05
+
+* Supports https:// feeds (thanks photonomad).
+* Added @transport@, @defaults@ and @set_empty@ attributes.
+
+h2. 0.2.0 - 2010-01-03
+
+* Added cache support (thanks variaas).
+* Added @limit@, @offset@ and paging features.
+* Added @linkify@ (thanks Jaro).
+
+h2. 0.1.0 - 2010-01-02
+
+* Initial release

@@ -1,0 +1,16 @@
+{
+  "name": "bloke/smd_xml",
+  "description": "A Textpattern CMS plugin to extract any XML/feed info and reformat it.",
+  "keywords": ["textpattern", "plugin", "xml", "feed", "format", "reformat", "manipulate"],
+  "homepage": "https://github.com/bloke/smd_xml",
+  "license": "GPL-2.0",
+  "type": "textpattern-plugin",
+  "support": {
+    "issues": "https://github.com/bloke/smd_xml/issues",
+    "source": "https://github.com/bloke/smd_xml"
+  },
+  "require": {
+    "textpattern/lock": ">=4.2.0",
+    "textpattern/installer": "*"
+  }
+}

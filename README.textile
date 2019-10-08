@@ -1,0 +1,410 @@
+h1. smd_xml
+
+Yank bits out of any hunk of XML and reformat it to your own needs. Great for pulling feed info into your Textpattern site, for example from delicious.com.
+
+h2. Features
+
+* Specify your XML data from any URL -- internal or external to TXP -- or from a string
+* Optionally process XML data using XSLT
+* Selectively extract any items in your record set
+* Use a Form or the plugin container to output data you have extracted
+* XML tag attributes are available as well
+* Supports pagination of results with limit/offset
+
+h2(#install). Installation / Uninstallation
+
+p(required). Requires PHP 5.2+ (and the SOAP extension for SOAP data feeds)
+
+Download the plugin from either "textpattern.org":http://textpattern.org/plugins/1138/smd_xml, or the software page above, paste the code into the TXP Admin -> Plugins pane, install and enable the plugin. Visit the "forum thread":http://forum.textpattern.com/viewtopic.php?id=32718 for more info or to report on the success or otherwise of the plugin.
+
+To remove the plugin, simply delete it from the Admin->Plugins tab.
+
+h2. Tag: smd_xml
+
+Place a @<txp:smd_xml>@ tag where you wish to process XML data -- this could be from a feed. Since this plugin is best explained by example, assume the following XML document is presented to the plugin:
+
+bc(block). <employees>
+   <employee>
+      <name id="wile_e_coyote">Wile E. Coyote</name>
+      <job_title>Schemer</job_title>
+      <dept>ACME corp</dept>
+      <quality>Cunning</quality>
+      <quality>Deviousness</quality>
+      <quality>Persistence</quality>
+      <inventions>
+         <name>ACME Rocket Sled</name>
+         <name>ACME Super Cannon</name>
+         <name>ACME Jetpack</name>
+      </inventions>
+   </employee>
+   <employee>
+      <name id="road_runner">Road Runner</name>
+      <job_title>Seed expert</job_title>
+      <dept>Evasion</dept>
+      <quality>Speed</quality>
+      <quality>Meep meep</quality>
+   </employee>
+</employees>
+
+Use the following attributes to configure the smd_xml plugin (attributes marked with a '*' are mandatory) :
+
+h3. Data import attributes
+
+; %data% *
+: The XML data source. Most of the time this will be a URL, though you could hard-code the XML data to use another TXP tag here (e.g. @<txp:variable />@).
+; %record% *
+: The name of the XML tag that surrounds each record of data in your feed. Thus you would need @record="employee"@ in the above document.
+; %fields%
+: List of XML nodes you want to extract from each record. For example, @fields="name, dept"@.
+: Each field you specify here will create a similarly-named "replacement tag":#reps that you may use in your form/container to display the relevant piece(s) of data. In this case, @{name}@ and @{dept}@ would be available in your output.
+: You may extract multiple copies of the same field by separating the name of the field's copy with @param_delim@. For example: @fields="pubDate, title|url_ttl, id, link"@ would extract title twice: once as @{title}@ and again as @{url_ttl}@. See "example 6":#eg6 for a practical application.
+: Finally, you can extract specific items based on their hierarchy in the tree. For example, if you specified @field="name"@ on the above document you would retrieve the concatenation of the employee and invention 'name' nodes. If you wanted to only extract the names of the inventions, you would specify @field="inventions->name"@. Similarly, if you only wanted the employee name you would use @field="employee->name"@. Chain nodes together with as many @->@ connectors as necessary to suit your XML stream.
+; %datawrap%
+: Sometimes the incoming XML document is just a series of records without any container. This can cause the plugin to get confused under certain circumstances. If you find this happening, use this attribute to manually wrap your data in the given XML tag. e.g. @datawrap="my_records"@ would wrap the data stream with @<my_records> ... </my_records>@ tags.
+: This attribute is also used as the default SOAP wrapper.
+; %load_atts%
+: When field attributes are detected they can be made available either when the start tag is encountered, or when the corresponding end tag is found. Options:
+:: *start*
+:: *end*
+: Default: @start@
+; %match%
+: Consider nodes if its data matches this given regular expression. Specify as many matches as you like, each separated by @delim@. A match must comprise two elements:
+:: The tag name to consider.
+:: The full regular expression (including delimiters) to compare the data in that tag against.
+; %skip%
+: List of XML nodes you want to skip over in each record. Useful if a field you wish to extract is used in two places in the same record. See "example 2":#eg2 for a practical application.
+; %defaults%
+: List of default values you wish to set if any @fields@ are not set in your document. Specify defaults in pairs of entries like this: @defaults="field|default, field|default, ..."@.
+: The pipe can be altered with @param_delim@.
+; %set_empty%
+: Any fields that are not set in your document will normally mean that you'll see the raw @{replacement tag}@ in your output. Use @set_empty="1"@ to ensure that all empty nodes are set to an empty value. Any @defaults@ you specify will take precedence over empties.
+; %cache_time%
+: If set, the XML document is cached in the TXP prefs. Subsequent calls to smd_xml (e.g. refreshing the page) will read the cached information instead of hitting the @data@ URL, thus cutting down on network traffic.
+: After @cache_time@ (specified in seconds) has elapsed, the next page refresh will cause the document to be fetched from the @data@ URL again. You may, however, force a refresh from the data URL at any time by adding @&force_read=1@ to the browser URL (you can use smd_prefalizer and search for 'smd_xml' to find the cached documents -- each is referenced by its unique ID)
+
+h3. Manipulation attributes
+
+; *kill_spaces*
+: Remove all inter-tag whitespace, newlines and tabs, i.e. redundant spaces surrounding the tags in the stream. It does not touch spaces within nodes.
+: Although optional, this attribute is *highly* recommended as it has the side effect of usually speeding up the parsing process. It does, however, make the feed very difficult to read as it squishes it all up on one line. So consider turning this off if you are debugging. Options:
+:: 0: no, keep inter-tag spaces in the feed
+:: 1: yes, remove them
+: Default: 1
+; %transform%
+: Perform tranformations to the raw data stream. The transformations occur prior to the data being cached so the results are cached as well. Specify as many transformations as you like, each separated by @delim@. Each transformation is broken down into a class (type) and a list of parameters for that class, all separated by @param_delim@. You can choose from the following classes of transform:
+:: *xsl*: the second parameter is the URL of the XSL stylesheet to fetch, e.g. @transform="xsl|http://site.com/path/to/stylesheet.xslt"@.
+:: *replace*: swap portions of the document that match the (full, including delimiters) regular expression given in the second parameter with the value given in the third. If the third parameter is omitted, the matching content is removed. e.g. @transform="replace|%<xs:schema.+?<\/xs:schema>%"@.
+; %format%
+: Alter the format of this list of fields. For each field, specify items separated by @param_delim@: The first is the name of the field you want to alter; The 2nd is the type of alteration required; The 3rd|4th|5th|.. specify how you want to alter the data. The following data types are supported:
+:: %case% : alter the case of the field. The items may be cumulative. Choose from four options as the third, fourth, etc parameters:
+::: *upper*
+::: *lower*
+::: *ucfirst*
+::: *ucwords*
+:: Example: to first convert the field to lower case then convert the first letter of each word to upper case, use @format="Country|case|lower|ucwords"@
+:: %date% : takes one argument; the format string as detailed in "strftime":http://php.net/manual/en/function.strftime.php. Example: @format="pubDate|date|%d %B %Y %H:%I:%S"@ would reformat the pubDate field. Can also be used to reformat time strings.
+:: %escape% : escape the field so special characters are encoded as their HTML entity values. Options:
+::: *double_quotes*: encode only double quotes (default)
+::: *all_quotes*: encode both double and single quotes
+::: *no_quotes*: don't encode any double or single quotes
+:: %fordb% : harden the field so it can be used in an SQL statement.
+:: %link% : convert the URL in this field to an HTML anchor hyperlink. Example: @format="cat_url|link"@ (replaces the @linkify@ attribute from the v0.2x plugin versions).
+:: %sanitize% : convert the field into one of three 'dumed down' formats, as specified by the third parameter. Choose from:
+::: *url* for creating simple, valid URL strings
+::: *file* for creating valid file names
+::: *url_title* for making TXP-style URL titles as governed by your prefs settings
+:: Example: @format="Title|sanitize|url"@ to sanitize the Title field suitable for use in a web address
+: NOTE: format only applies to the form/container content. It is NOT applicable in @ontag@ Forms. If you wish to apply formatting to ontag attributes, or perform more complicated transformations, consider the smd_wrap plugin.
+; %target_enc%
+: Character encoding to apply to the parsed XML data. Choose from:
+:: *ISO-8859-1*
+:: *US-ASCII*
+:: *UTF-8*
+: Default: @UTF-8@.
+; %uppercase%
+: Set to 1 to force all XML tag names to be in upper case, thus you would have to specify @fields="NAME, DEPT"@ in order to successfully extract those fields.
+; %concat%
+: Any duplicate nodes in the stream are usually concatenated together. If you wish to turn this feature off so that only the last tag's content remains, set @concat="0"@.
+: Default: 1
+; %convert%
+: If your data stream contains data you don't want or data that you wish to translate (for example, character entities) you can list them here.
+: Items are specified in pairs separated by @param_delim@; the first is the item to search for and the second is its replacement.
+: For example: @convert="&amp;#039|'"@ would replace all occurrences of @&amp;#039@ with an apostrophe character. Note that the replacements are performed on the raw stream _before_ it is parsed and _after_ it is cached. Also take care when decoding double quotes; this is the correct method: @convert="&amp;quot;|"""@ (note the double quote is escaped by putting _two_ double quote characters in)
+
+h3. Forms and paging attributes
+
+; %form%
+: The Txp Form with which to parse each record. You may use the plugin as a container instead if you prefer.
+; %pageform%
+: Optional Txp form used to specify the layout of any paging navigation and statistics such as page number, quantity of records per page, total number of records, etc. See "paging replacement tags":#pgreps.
+; %pagepos%
+: The position of the paging information. Options are @below@ (the default), @above@, or both of them separated by @delim@.
+; %limit%
+: Show this many records per page. Setting a @limit@ smaller than the total number of records switches paging on automatically so you can use the @<txp:older />@ and @<txp:newer />@ tags inside your @pageform@ to step through each page of results.
+: You may also construct your own paging (see "example 3":#eg3)
+; %offset%
+: Skip this many records before outputting the results.
+: If you specify a negative @offset@ you start that many records from the end of the document
+; %pagevar%
+: If you are putting smd_xml on the same page as a standard article list, the built-in newer and older tags will clash with those of smd_xml; clicking next/prev will step through both your result set and your article list.
+: Specify a different variable name here so the two lists can be navigated independently, e.g. @pagevar="xpage"@.
+: Note that if you change this, you will have to generate your own custom newer/older links (see "example 4":#eg4) and the "conditional tags":#smd_xif.
+: There is also a special value @SMD_XML_UNIQUE_ID@ which assigns the tags' unique ID as the paging variable. See "example 5":#eg5 for more.
+: Default: @pg@.
+; %ontagstart / ontagend%
+: Under normal operation, each time the plugin encounters a node that matches one of your @fields@ it is extracted and the output stored for display _at the end of processing the entire document_. Sometimes you might wish to output information on-the-fly as the document is read. This is where @ontagstart@ and its companion @ontagend@ can help.
+: Specify as many ontag items as you like, each separated by a comma. Within each ontag item you first specify the name of a Txp Form that will determine what to do or display when the tag is encountered. The remaining items (each separated by @param_delim@) are the tag names to "watch".
+: Whenever one of the given tags is encountered (start of node or end of node depending on which ontag you have chosen) control is immediately passed to the relevant Form.
+: Note that you may not use the node's data @{replacement}@ value unless using @ontagend@ (because its value has not been discovered at tag start!) You may, however, use any attribute values if you have set @load_atts="start"@.
+: You canot use the @format@ attribute in your ontag Forms: consider the smd_wrap plugin if you need additional processing.
+
+h4. Tag/class/formatting attributes
+
+; %wraptag%
+: The HTML tag, without brackets, to surround each record you output.
+; %break%
+: The HTML tag, without brackets, to surround each field you output.
+; %class%
+: The CSS class name to apply to the @wraptag@.
+
+h4. Plugin customisation
+
+; %delim%
+: The delimiter to use between items in the plugin attributes.
+: Default: @,@ (comma).
+; %param_delim%
+: The delimiter to use between items in XML and plugin data attributes.
+: Default: @|@ (pipe).
+; %concat_delim%
+: The delimiter to use between identically-named tags in the XML data stream.
+: Default: @ @ (space).
+; %var_prefix%
+: If you wish to embed an smd_xml tag inside the container of another, the replacement and paging variables might clash. Use this in one of your tags to help prevent this.
+: It takes up to two values separated by a comma: the first is the prefix to apply to regular replacement tags; the second is the prefix to apply to page-based replacement tags.
+: If only one value is specifed, the same prefix will be applied to both tag and page replacements.
+: Default: @, smd_xml_@ (i.e. no tag prefix, and @smd_xml_@ page prefix)
+; %timeout%
+: The time in seconds to wait for the remote server to respond before giving up.
+: Default: 10
+; %transport%
+: (should not be needed) If you would like to force the plugin to use a particular HTTP transport mechanism to fetch your @data@ you can specify it here. Choose from:
+:: *fsock*
+:: *curl*
+:: *soap*
+: The @soap@ mechanism uses cURL internally so you must have that available.
+: Default: @curl@ (if available), else @fsock@.
+; %transport_opts%
+: When using @soap@ transport you often need to pass additional parameters to the SOAP server. @transport_opts@ takes up to three paramaters, separated by @delim@:
+:: Client method: the name of a SOAP method to call
+:: Data: a series of name-val pairs (separated by @param_delim@) or an XML document which will be passed to the client method. e.g. @type|table|user|Bloke|pass|wilecoyote@ passes three params (type, user, and pass) with corresponding values. Note that if you want to use XML here you need to declare your intention using the @transport_config@ attribute.
+:: Result method: the name of a SOAP method to fetch the output. The first @param_delim@ option is the method name to call to obtain the result set, and the second is the portion of the results you want returned (e.g. @any@)
+; %transport_config%
+: Allows you to configure how the plugin interacts with the server. The following configuration parameters are available; separate each configuration item from its predecessor using @delim@ and separate any value from its parameter name using @param_delim@ :
+;; For soap:
+:: *soap_wrap* : the data you pass to the SOAP server may not be encapsulated in its own unique element. If that's the case and the server requires this, you can specify the wrapper here. For example, some servers require @soap_wrap|Request@.
+:: *soap_delim* : when retrieving multiple SOAP items, they will be concatenated together using this delimiter. Default: the same delimiter as set in @param_delim@.
+:: *soap_type_input* : can be either @nvpairs@ (the default, as shown above) or @xml@ if you are passing in a complete XML document to configure the SOAP server. When using xml input format, the plugin automatically converts the given XML document into a SOAP array.
+:: *soap_type_output* : SOAP data is normally returned as an XML document, but if for some reason the server sends back a raw SOAP array you can use this with an @xml@ parameter to ask the plugin to try and interpret the SOAP data into an XML stream for you. The success of this operation is duty bound by how well formed the resulting data is. If using this you may (probably will) also need to specify @soap_numeric_wrap@.
+:: *soap_numeric_wrap* : when converting a SOAP array back to XML, any repeating records are normally indexed starting from 0. Since raw numbers are invalid XML tag names they need to be altered somehow. By default, this is done by taking the parent class and appending a sequential number to it. If you wish to set any numeric records to a specific wrapper element, specify that element here.
+;; For curl:
+:: *binary*
+:: *cainfo*
+:: *capath*
+:: *certinfo*
+:: *crlf*
+:: *port*
+:: *proxy*
+:: *proxytunnel*
+:: *proxyuserpwd*
+:: *netrc*
+:: *sslcert*
+:: *useragent*
+:: *verifypeer*
+:: *verbose*
+;; For fsock:
+:: *accept*
+:: *charset*
+:: *date*
+:: *lang*
+:: *pragma*
+:: *useragent*
+; %line_length%
+: If you are using the @fsock@ transport mechanism, the plugin grabs the XML document line by line and uses a maximum line length of 8192 characters by default. This is usually good enough because most feeds contain newlines, but some (e.g. Google Spreadsheet) don't have any newlines in them.
+: To successfully parse such documents you may need to increase the line length. In these situations, however, it is highly recommended to switch to @transport="curl"@ instead (if you can) because it does not have any line length restrictions.
+; %hashsize%
+: (should not be needed) When specifying a @cache_time@ the plugin assigns a 32-character, unique reference to the current smd_xml based on your import attributes. @hashsize@ governs the mechanism for making this long reference shorter.
+: It comprises two numbers separated by a colon; the first is the length of the uniqe ID, the second is how many characters to skip past each time a character is chosen. For example, if the unique_reference was @0cf285879bf9d6b812539eb748fbc8f6@ then @hashsize="6:5"@ would make a 6-character unique ID using every 5th character; in other words @05f898@. If at any time, you "fall off" the end of the long string, the plugin wraps back to the beginning of the string and continues counting.
+: Default: @6:5@.
+
+h3(#reps). Replacement tags
+
+Each XML field you extract from your data stream has an equivalently-named replacement tag available so you may use it anywhere you like in your Form/container. Although the examples here don't demonstrate this, the replacement names will be prefixed by whatever you have set in your @var_prefix@ attribute.
+
+If you chose to extract @fields="name, job_title, quality"@ you would have the following replacement tags available during the first record:
+
+* @{name}@ : Wile E. Coyote (+ the names of the Inventions)
+* @{name|id}@ : wile_e_coyote
+* @{job_title}@ : Schemer
+* @{quality}@ : Cunning Deviousness Persistence
+
+And during the second record, the same replacement tag names would refer to the following items:
+
+* @{name}@ : Road Runner
+* @{name|id}@ : road_runner
+* @{job_title}@ : Seed expert
+* @{quality}@ : Speed Meep meep
+
+Note that the attribute called @id@ that is part of the @<name>@ XML tag has been extracted and is made available automatically. By default, the names of attributes are defined as @{tag|attribute}@. The pipe can be altered using @param_delim@.
+
+The @{quality}@ tag appears more than once in the example document above and is thus concatenated by default. You can influence its output using the @concat@ and @concat_delim@ attributes, e.g. using @concat_delim="|"@ would render the following replacement variable on the first record:
+
+* @{quality}@ : Cunning|Deviousness|Persistence
+
+while @concat="0"@ would render this (i.e. the value of the last node encountered):
+
+* @{quality}@ : Persistence
+
+There are also some special statistical tags available in each record:
+
+* @{smd_xml_totalrecs}@ : the total number of records found in your XML document
+* @{smd_xml_pagerecs}@ : the number of records on this page (if not using paging, this is the same as above)
+* @{smd_xml_pages}@ : the number of available pages
+* @{smd_xml_thispage}@ : the page number of the currently visible page
+* @{smd_xml_thisrec}@ : the record number, starting at 1
+* @{smd_xml_thisindex}@ : the record number, starting at 0
+* @{smd_xml_runrec}@ : the record number, starting at 1 and including any offset
+* @{smd_xml_runindex}@ : the record number, starting at 0 and including any offset
+
+h3(#pgreps). Paging replacement tags
+
+In your @pageform@ you can employ any of the following replacement tags to build up a navigation system for stepping through your XML document. Note that they all show @smd_xml_@ as the prefix here, but that may be changed with the @var_prefix@ attribute:
+
+* @{smd_xml_totalrecs}@ : the total number of records found in your XML document
+* @{smd_xml_pagerecs}@ : the number of records on this page
+* @{smd_xml_pages}@ : the number of available pages
+* @{smd_xml_prevpage}@ : the page number of the previous page -- empty if on first page
+* @{smd_xml_thispage}@ : the page number of the current page
+* @{smd_xml_nextpage}@ : the page number of the next page -- empty if on last page
+* @{smd_xml_rec_start}@ : the record number of the first record on this page (counted from the start of the record set)
+* @{smd_xml_rec_end}@ : the record number of the last record on this page (counted from the start of the record set)
+* @{smd_xml_recs_prev}@ : the number of records on the previous page
+* @{smd_xml_recs_next}@ : the number of records on the next page
+* @{smd_xml_unique_id}@ : the unique reference number assigned to this smd_xml tag (see "example 5":#eg5 for usage of this)
+
+h2(#smd_xif). Tags: @<txp:smd_xml_if_prev>@ / @<txp:smd_xml_if_next>@
+
+Use these container tags to determine if there is a next or previous page and take action if so. Can only be used inside @pageform@, thus all "paging replacement variables":#pgreps are available inside these tags.
+
+bc(block). <txp:smd_xml_if_prev>Previous page</txp:smd_xml_if_prev>
+<txp:smd_xml_if_next>Next page</txp:smd_xml_if_next>
+
+The tags supprt @<txp:else />@. See "example 5":#eg5 for more.
+
+h2. Examples
+
+h3(#eg1). Example 1: delicious links
+
+Swap @roadrunner@ in this code with your delicious username to get your own feed:
+
+bc(block). <txp:smd_xml data="http://feeds.delicious.com/v2/rss/roadrunner"
+     record="item" fields="title, link, pubDate, description"
+     wraptag="dl">
+   <dt><a href="{link}">{title}</a></dt>
+   <dd>Posted: {pubDate}<br />{description}</dd>
+</txp:smd_xml>
+
+h3(#eg2). Example 2: twitter feed
+
+bc(block). <txp:smd_xml
+     data="http://twitter.com/statuses/user_timeline/textpattern.xml"
+     record="status" fields="id, text, created_at" skip="user"
+     wraptag="ul" format="text|link">
+   <li>
+      <a href="http://twitter.com/textpattern/statuses/{id}">
+         {created_at}
+      </a>
+      <br />{text}
+   </li>
+</txp:smd_xml>
+
+Notice that we @skip@ the whole _user_ block in the XML data stream. This is for two reasons:
+
+# it is redundant information that appears in every record -- we already know to which user the feed belongs because they're all from the same user
+# _created_at_ is used inside the user block as well as in the outer status block so we get two datestamps, which is not what we want (if we simply used @concat="0"@ to only grab one of the created_at entries, the last one would prevail -- the one from the user block)
+
+h3(#eg3). Example 3: limit and paging
+
+Viewing the I Love TXP feed 3 records at a time. Note that since the site is not updated frequently, the cache_time of 86400 seconds (1 day) is ample to avoid hammering the network:
+
+bc(block). <txp:smd_xml
+     data="http://feeds.feedburner.com/welovetxp"
+     record="item" fields="title,description, link, pubDate"
+     wraptag="ul" limit="3" pageform="pager"
+     cache_time="86400">
+   <li>
+      <a href="{link}">
+         {title}
+      </a><span class="published">{pubDate}</span>
+      <br />{description}
+   </li>
+</txp:smd_xml>
+
+And in form @pager@:
+
+bc(block). Page {smd_xml_thispage} of {smd_xml_pages}
+<txp:newer>Previous page</txp:newer>
+<txp:older>Next page</txp:older>
+
+If you wanted to view the last three entries in the feed instead of the first three, you could set @offset="-3"@.
+
+h3(#eg4). Example 4: using @pagevar@
+
+Adding @pagevar="xmlpg"@ to example 3 allows paging independently of txp:older and txp:newer tags. You then need to build your own links in your @pager@ form, like this:
+
+bc(block). Page {smd_xml_thispage} of {smd_xml_pages} |
+   Showing records {smd_xml_rec_start} to {smd_xml_rec_end}
+   of {smd_xml_totalrecs} |
+  <a href="?xmlpg={smd_xml_prevpage}">Previous {smd_xml_recs_prev}</a>
+  <a href="?xmlpg={smd_xml_nextpage}">Next {smd_xml_recs_next}</a>
+
+That creates links to next and previous record sets using the assigned @pagevar@ as the URL parameter.
+
+h3(#eg5). Example 5: conditional navigation and the unique ID
+
+Again using example 3, if you used @pagevar="SMD_XML_UNIQUE_ID"@ the pagevar would be assigned the value @f290b8@. In this case we could use it like this:
+
+bc(block). Page {smd_xml_thispage} of {smd_xml_pages} |
+   Showing records {smd_xml_rec_start} to {smd_xml_rec_end}
+   of {smd_xml_totalrecs} |
+<txp:smd_xml_if_prev>
+  <a href="?{smd_xml_unique_id}={smd_xml_prevpage}">Previous {smd_xml_recs_prev}</a>
+</txp:smd_xml_if_prev>
+<txp:smd_xml_if_next>
+  <a href="?{smd_xml_unique_id}={smd_xml_nextpage}">Next {smd_xml_recs_next}</a>
+</txp:smd_xml_if_next>
+
+Note that we are using the conditional tags to only display the next and previous links if the next/prev page exists and also that the URL link is generated using @{smd_xml_unique_id}@. You could conceivably use this same pageform on more than one XML feed on the same page and navigate the two feeds indpendently, though you would have to work out a clever way of amalgamating the URL vars (perhaps using the adi_gps plugin).
+
+h3(#eg6). Example 6: inserting XML data into TXP
+
+bc(block). <txp:smd_xml data="http://feeds.delicious.com/v2/rss/roadrunner"
+     record="item" fields="title|utitle, link, pubDate, description, category"
+     format="pubDate|date|%Y-%m-%d %H:%I:%S,
+     description|fordb, title|fordb, utitle|sanitize|url_title">
+   <txp:smd_query query="INSERT INTO textpattern
+     SET Posted='{pubDate}', LastMod=NOW(),
+     url_title='{utitle}',
+     Title='{title}', custom_3='{link}',
+     Body='{description}', Body_html='{description}',
+     Section='links', Category1='delicious',
+     keywords='{category}'" />
+</txp:smd_xml>
+
+This example takes a delicious feed, reformats the various entries and inserts them into the textpattern table in a dedicated section. Note that the date format is altered and the feed's title is converted to a sanitized TXP URL suitable for the url_title field.
+
+h2. Author and credits
+
+Written by "Stef Dawson":http://stefdawson.com/contact. For other software by me, or to make a donation, see the "software page":http://stefdawson.com/sw.
+
+This plugin would not have been possible without the tireless help from those community members willing to test my flaky beta code as I strive to make the plugin work across as many types of feed as possible. Special mentions, in no particular order, go to oliverker, aslsw66, tye, jakob, Mats, and Destry.
+

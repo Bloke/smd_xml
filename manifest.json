@@ -1,0 +1,11 @@
+{
+  "name": "smd_xml",
+  "description": "A Textpattern CMS plugin to extract any XML/feed info and reformat it",
+  "version": "0.4.2",
+  "type": 0,
+  "author": "Stef Dawson",
+  "author_uri": "https://stefdawson.com/",
+  "order": 5,
+  "flags": 0,
+  "help": {"file" : ["./README.textile"]}
+}
