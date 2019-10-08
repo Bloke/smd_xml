@@ -17,7 +17,7 @@ $plugin['name'] = 'smd_xml';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.4.2';
+$plugin['version'] = '0.4.3';
 $plugin['author'] = 'Stef Dawson';
 $plugin['author_uri'] = 'https://stefdawson.com/';
 $plugin['description'] = 'Extract any XML/feed info and reformat it';
@@ -87,7 +87,9 @@ if (!defined('txpinterface'))
 
 if (class_exists('\Textpattern\Tag\Registry')) {
     Txp::get('\Textpattern\Tag\Registry')
-        ->register('smd_xml');
+        ->register('smd_xml')
+        ->register('smd_xml_if_prev')
+        ->register('smd_xml_if_next');
 }
 
 // TODO:

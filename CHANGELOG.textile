@@ -1,5 +1,9 @@
 h1. Changelog
 
+h2. 0.4.3 - 2019-10-08
+
+* Register missed smd_xml_if_prev/next tags with the parser.
+
 h2. 0.4.2 - 2019-10-08
 
 * Updated for PHP 5+ and Textpattern 4.6+.
